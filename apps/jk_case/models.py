@@ -100,6 +100,8 @@ class TestCase(TimeStampedModel):
     interface = models.ForeignKey(InterFace, on_delete=models.CASCADE, verbose_name='接口')
     name = models.CharField(max_length=30, verbose_name='用例名称')
     description = models.CharField(max_length=100, null=True, verbose_name='用例描述')
+    # body => {'data': {'page': '${page}', 'per_page': '${per_page}'}, 'type': 'formdata'}
+    # type => formdata | json
     body = models.JSONField(  # 改为JSON字段
         default=dict,
         verbose_name='请求参数'
@@ -179,9 +181,9 @@ class CaseExecution(models.Model):
         max_length=20,
         choices=TestExecution.STATUS_CHOICES
     )
-    request_data = models.JSONField()  # 结构化存储
-    response_data = models.JSONField()
-    assertions_result = models.JSONField()
-    extracted_vars = models.JSONField()
-    duration = models.FloatField()
+    request_data = models.JSONField(default=dict)  # 结构化存储
+    response_data = models.JSONField(default=dict)
+    assertions_result = models.JSONField(default=list)
+    extracted_vars = models.JSONField(default=list)
+    duration = models.FloatField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)

@@ -91,10 +91,24 @@ class TestSuiteSerializer(BaseModelSerializer):
         read_only=True,  # 仅在序列化输出时生效
         help_text="关联项目名称"
     )
+    # 新增字段：返回最新执行状态
+    execution_status = serializers.SerializerMethodField(
+        help_text="最新测试执行状态",
+        read_only=True,
+        default='success',
+        source='get_execution_status'
+    )
 
     class Meta:
         model = TestSuite
         fields = '__all__'
+
+    def get_execution_status(self, obj):
+        """获取套件最新执行记录的状态"""
+        # 获取关联的 TestExecution 记录，按执行时间降序取第一条
+        latest_execution = obj.testexecution_set.order_by('-started_at').first()
+        return latest_execution.status if latest_execution else 'pending'
+
 
 
 class CaseExecutionSerializer(serializers.ModelSerializer):

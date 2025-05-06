@@ -1,11 +1,15 @@
 from common.utils import APIResponse
-from rest_framework import viewsets, permissions
+from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from .models import TestSuite, SuiteCaseRelation, TestExecution, InterFace, TestCase
 from .serializers import TestSuiteSerializer, SuiteCaseRelationSerializer, TestExecutionSerializer, InterFaceSerializer, TestCaseSerializer
 from datetime import timezone
 from common.error_codes import ErrorCode
+from common.handle_test.tasks import async_execute_suite
+import logging
+
+log = logging.getLogger('app')
 
 
 class InterFaceViewSet(viewsets.ModelViewSet):
@@ -195,16 +199,31 @@ class TestSuiteViewSet(viewsets.ModelViewSet):
         SuiteCaseRelation.objects.bulk_update(relations_to_update, ['order'])
         return Response({'status': 'success'})
 
-    @action(detail=True, methods=['post'])
-    def async_execute(self, request, pk=None):
+    @action(detail=True, methods=['post'], url_path='execute')
+    def execute(self, request, pk=None):
         suite = self.get_object()
-        suite.status = 'running'
-        suite.start_time = timezone.now()
-        suite.save()
-
-        # 触发后台任务
-        async_test_runner.delay(suite.id)  # 使用django-background-tasks或Celery
-        return Response({'status': '任务已启动'}, status=202)
+        # 创建新的执行记录
+        execution = TestExecution.objects.create(
+            suite=suite,
+            status='pending',
+            executed_by=request.user
+        )
+        try:
+            # 触发异步任务
+            async_execute_suite.delay(execution.id)
+            return Response(
+                {'execution_id': execution.id, 'status': '任务已提交'},
+                status=status.HTTP_202_ACCEPTED
+            )
+        except Exception as e:
+            # 回滚执行记录状态
+            # execution.status = 'failed'
+            # execution.ended_at = timezone.now()
+            # execution.save()
+            return Response(
+                {'error': f'任务提交失败: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
 
 class TestExecutionViewSet(viewsets.ModelViewSet):
@@ -214,13 +233,41 @@ class TestExecutionViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'])
     def execute(self, request, pk=None):
-        """触发执行套件"""
+        """触发异步执行测试套件"""
+        # 获取关联的测试套件
+        suite = self.get_object()
+
+        # 创建新的执行记录
+        execution = TestExecution.objects.create(
+            suite=suite,
+            status='pending',
+            executed_by=request.user
+        )
+
+        try:
+            # 触发异步任务
+            async_execute_suite.delay(execution.id)
+            return Response(
+                {'execution_id': execution.id, 'status': '任务已提交'},
+                status=status.HTTP_202_ACCEPTED
+            )
+        except Exception as e:
+            # 回滚执行记录状态
+            execution.status = 'failed'
+            execution.ended_at = timezone.now()
+            execution.save()
+            return Response(
+                {'error': f'任务提交失败: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    @action(detail=True, methods=['get'])
+    def status(self, request, pk=None):
+        """查询执行状态"""
         execution = self.get_object()
-        execution.status = 'running'
-        execution.save()
-
-        # 调用异步执行任务（示例伪代码）
-        # execute_suite.delay(execution.id)
-
-        return Response({'task_id': 'execution_' + str(execution.id)})
-
+        progress = f"{execution.cases.exclude(status='pending').count()}/{execution.cases.count()}"
+        return Response({
+            'execution_id': execution.id,
+            'status': execution.status,
+            'progress': progress
+        })
