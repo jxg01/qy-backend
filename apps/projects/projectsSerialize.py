@@ -3,6 +3,7 @@ from projects.models import Projects, GlobalVariable
 from common.error_codes import ErrorCode
 from common.exceptions import BusinessException
 import django_filters
+from jk_case.serializers import ModuleSerializer
 
 
 class ProjectsFilter(django_filters.FilterSet):
@@ -31,6 +32,8 @@ class ProjectsSerialize(serializers.ModelSerializer):
         read_only=True,
         help_text="项目创建人"
     )
+
+    # modules = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
         model = Projects
@@ -64,6 +67,11 @@ class ProjectsSerialize(serializers.ModelSerializer):
         if Projects.objects.filter(name__iexact=value).exists():
             raise BusinessException(ErrorCode.PROJECT_NAME_EXISTS)
         return value
+
+    def get_modules(self, obj):
+        # 预取直接子模块（parent_module=None）及其递归子模块
+        top_level_modules = obj.modules.filter(parent_module=None)
+        return ModuleSerializer(top_level_modules, many=True, context=self.context).data
 
 
 class GlobalVariableSerialize(serializers.ModelSerializer):

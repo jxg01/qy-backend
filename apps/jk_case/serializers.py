@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import TestSuite, SuiteCaseRelation, InterFace, TestExecution, CaseExecution, TestCase
+from .models import TestSuite, SuiteCaseRelation, InterFace, TestExecution, CaseExecution, TestCase, Module
 from projects.models import Projects
 
 
@@ -36,6 +36,26 @@ class InterFaceSerializer(BaseModelSerializer):
             'assertions': {'default': list},
             'variable_extract': {'default': list},
         }
+
+
+class ModuleSerializer(BaseModelSerializer):
+    # 递归序列化子模块
+    children = serializers.SerializerMethodField()
+    # 关联接口
+    interface = InterFaceSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = Module
+        # fields = ['id', 'name', 'submodules', 'interface']
+        fields = '__all__'
+
+    def get_children(self, obj):
+        # # 获取直接子模块并按 order 排序
+        # children = obj.submodules.all().order_by('order')
+        children = obj.submodules.all()
+        return ModuleSerializer(children, many=True, context=self.context).data
+
+
 
 
 class TestCaseSerializer(BaseModelSerializer):

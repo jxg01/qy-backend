@@ -35,8 +35,9 @@ router.register('variable', GlobalVariableView)
 # about case
 router.register(r'suite', views.TestSuiteViewSet)
 router.register(r'execution', views.TestExecutionViewSet)
-router.register(r'interface', views.InterFaceViewSet, basename='interfacecase')
-router.register(r'testcase', views.TestCaseViewSet, basename='testcase')
+router.register(r'interfaces', views.InterFaceViewSet, basename='interfacecase')
+router.register(r'testcases', views.TestCaseViewSet, basename='testcase')
+router.register('modules', views.ModuleViewSet, basename='module')
 
 urlpatterns = [
     path('admin/', admin.site.urls),

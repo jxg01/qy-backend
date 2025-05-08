@@ -3,6 +3,7 @@ from django.utils import timezone
 from projects.models import Projects
 # from django.contrib.auth.models import User
 from users.models import UserProfile
+from projects.models import Projects
 
 
 # 抽象基类减少重复
@@ -23,6 +24,23 @@ class TimeStampedModel(models.Model):
 
     class Meta:
         abstract = True
+
+
+class Module(TimeStampedModel):
+    # 模型
+    project = models.ForeignKey(Projects, on_delete=models.CASCADE, related_name='modules', verbose_name="所属项目")
+    parent_module = models.ForeignKey('self', on_delete=models.CASCADE, null=True,
+                                      blank=True, related_name='submodules', verbose_name="父模块")
+    name = models.CharField(max_length=100, verbose_name="模块名称")
+    # order = models.PositiveIntegerField(default=0, verbose_name="排序")
+
+    class Meta:
+        db_table = 'qy_module'
+        ordering = ['name']
+        unique_together = [('project', 'name')]  # 同一项目内模块名称唯一
+
+    def __str__(self):
+        return f"{self.project.name} - {self.name}"
 
 
 # class UserTrackedModel(models.Model):
@@ -64,10 +82,18 @@ class InterFace(TimeStampedModel):
         ('PATCH', 'PATCH'),
     ]
 
-    project = models.ForeignKey(  # 字段重命名
-        Projects,
+    # project = models.ForeignKey(  # 字段重命名
+    #     Projects,
+    #     on_delete=models.CASCADE,
+    #     verbose_name='所属项目'
+    # )
+
+    module = models.ForeignKey(
+        Module,
         on_delete=models.CASCADE,
-        verbose_name='所属项目'
+        related_name='interface',
+        verbose_name="所属模块",
+        null=True,
     )
     name = models.CharField(
         max_length=30,

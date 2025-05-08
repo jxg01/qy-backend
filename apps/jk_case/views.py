@@ -2,14 +2,44 @@ from common.utils import APIResponse
 from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from .models import TestSuite, SuiteCaseRelation, TestExecution, InterFace, TestCase
-from .serializers import TestSuiteSerializer, SuiteCaseRelationSerializer, TestExecutionSerializer, InterFaceSerializer, TestCaseSerializer
+from .models import TestSuite, SuiteCaseRelation, TestExecution, InterFace, TestCase, Module
+from .serializers import (TestSuiteSerializer, SuiteCaseRelationSerializer, TestExecutionSerializer,
+                          InterFaceSerializer, TestCaseSerializer, ModuleSerializer)
 from datetime import timezone
 from common.error_codes import ErrorCode
 from common.handle_test.tasks import async_execute_suite
 import logging
 
 log = logging.getLogger('app')
+
+
+class ModuleViewSet(viewsets.ModelViewSet):
+    queryset = Module.objects.select_related('project', 'parent_module').prefetch_related('submodules', 'interface')
+    # queryset = Module.objects.filter(parent_module__isnull=True)
+    serializer_class = ModuleSerializer
+
+    def get_queryset(self):
+        # 默认仅返回顶级模块（parent_module=None）
+        queryset = Module.objects.filter(parent_module=None)
+
+        # 如果请求中指定了 parent_module_id，返回该父模块的子模块
+        project_id = self.request.query_params.get('project_id')
+        if project_id:
+            queryset = Module.objects.filter(project_id=project_id, parent_module=None)
+        return queryset.select_related('project').prefetch_related('submodules')
+
+
+    def perform_create(self, serializer):
+        """自动设置创建人"""
+        serializer.save(
+            created_by=self.request.user,
+            updated_by=self.request.user
+        )
+
+    def perform_update(self, serializer):
+        """自动设置更新人"""
+        serializer.save(updated_by=self.request.user)
+
 
 
 class InterFaceViewSet(viewsets.ModelViewSet):
