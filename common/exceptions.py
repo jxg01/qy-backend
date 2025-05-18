@@ -1,11 +1,13 @@
 from rest_framework.views import exception_handler
 from rest_framework import status, serializers
-from rest_framework.exceptions import APIException
+from rest_framework.exceptions import APIException, NotAuthenticated
+from rest_framework_simplejwt.exceptions import InvalidToken
 from common.error_codes import ErrorCode
-from rest_framework.response import Response
-from django.db import IntegrityError
 from django.http.response import Http404
 import re
+import logging
+
+log = logging.getLogger('django')
 
 
 class BusinessException(APIException):
@@ -30,6 +32,24 @@ class BusinessException(APIException):
 def custom_exception_handler(exc, context):
     response = exception_handler(exc, context)
     response.status_code = status.HTTP_200_OK
+    log.info(f'response => {response} ')
+    log.info(f'response type => {type(exc)}')
+
+    if isinstance(exc, NotAuthenticated):
+        response.status_code = status.HTTP_401_UNAUTHORIZED
+        response.data = {
+            'code': ErrorCode.UN_AUTHORIZED.code,
+            'message': ErrorCode.UN_AUTHORIZED.message,
+        }
+        return response
+
+    if isinstance(exc, InvalidToken):
+        response.status_code = status.HTTP_401_UNAUTHORIZED
+        response.data = {
+            'code': ErrorCode.UN_AUTHORIZED.code,
+            'message': ErrorCode.UN_AUTHORIZED.message,
+        }
+        return response
 
     # 处理通用业务异常
     if isinstance(exc, BusinessException):

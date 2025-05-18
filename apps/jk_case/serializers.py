@@ -30,12 +30,12 @@ class InterFaceSerializer(BaseModelSerializer):
     class Meta:
         model = InterFace
         fields = '__all__'
-        extra_kwargs = {
-            'headers': {'default': dict},
-            'body': {'default': dict},
-            'assertions': {'default': list},
-            'variable_extract': {'default': list},
-        }
+        # extra_kwargs = {
+        #     'headers': {'default': dict},
+        #     'body': {'default': dict},
+        #     'assertions': {'default': list},
+        #     'variable_extract': {'default': list},
+        # }
 
 
 class ModuleSerializer(BaseModelSerializer):
@@ -56,6 +56,10 @@ class ModuleSerializer(BaseModelSerializer):
         return ModuleSerializer(children, many=True, context=self.context).data
 
 
+class AllModuleSerializer(BaseModelSerializer):
+    class Meta:
+        model = Module
+        fields = ['id', 'name']
 
 
 class TestCaseSerializer(BaseModelSerializer):

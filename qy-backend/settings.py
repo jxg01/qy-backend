@@ -164,8 +164,8 @@ REST_FRAMEWORK = {
     'DEFAULT_FILTER_BACKENDS': ['django_filters.rest_framework.DjangoFilterBackend'],
 }
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(hours=2),
-    'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
+    'ACCESS_TOKEN_LIFETIME': timedelta(days=2),  # minutes | days | seconds | hours
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
 }
 
 # 允许携带cookie
@@ -241,7 +241,7 @@ LOGGING = {
     'loggers': {
         'django': {  # Django框架内置日志
             'handlers': ['console', 'file', 'error_file'],
-            'level': 'DEBUG',
+            'level': 'INFO',
             'propagate': False,
         },
         'app': {  # 自定义应用日志

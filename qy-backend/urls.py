@@ -16,8 +16,7 @@ Including another URLconf
 from django.contrib import admin
 
 from django.urls import path, include
-# from rest_framework_jwt.views import obtain_jwt_token, refresh_jwt_token
-from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
+from rest_framework_simplejwt.views import TokenRefreshView
 from users.views import UserViewSet, UserRegistrationViewSet, CustomTokenObtainPairView
 from jk_case import views
 from projects.views import ProjectsView, GlobalVariableView
@@ -31,7 +30,6 @@ router.register('users', UserViewSet)
 router.register('projects', ProjectsView)
 router.register('register', UserRegistrationViewSet, basename='register')
 router.register('variable', GlobalVariableView)
-# router.register('register', AuthViewSet, basename='register')
 # about case
 router.register(r'suite', views.TestSuiteViewSet)
 router.register(r'execution', views.TestExecutionViewSet)
@@ -41,10 +39,8 @@ router.register('modules', views.ModuleViewSet, basename='module')
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    # path('docs', include_docs_urls(title='倾Y系统')),
+    # path('docs/', include_docs_urls(title='倾Y系统')),
     path('api-auth/', include('rest_framework.urls')),
-    # path('api/login/', TokenObtainPairView, name='token_obtain_pair'),  # jwt认证接口
-    # path('api/token/refresh/', TokenRefreshView, name='token_refresh'),  # jwt认证接口
 
     path('api/login/', CustomTokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),

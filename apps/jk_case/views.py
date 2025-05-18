@@ -4,13 +4,13 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from .models import TestSuite, SuiteCaseRelation, TestExecution, InterFace, TestCase, Module
 from .serializers import (TestSuiteSerializer, SuiteCaseRelationSerializer, TestExecutionSerializer,
-                          InterFaceSerializer, TestCaseSerializer, ModuleSerializer)
+                          InterFaceSerializer, TestCaseSerializer, ModuleSerializer, AllModuleSerializer)
 from datetime import timezone
 from common.error_codes import ErrorCode
 from common.handle_test.tasks import async_execute_suite
 import logging
 
-log = logging.getLogger('app')
+log = logging.getLogger('django')
 
 
 class ModuleViewSet(viewsets.ModelViewSet):
@@ -19,15 +19,19 @@ class ModuleViewSet(viewsets.ModelViewSet):
     serializer_class = ModuleSerializer
 
     def get_queryset(self):
-        # 默认仅返回顶级模块（parent_module=None）
-        queryset = Module.objects.filter(parent_module=None)
+        # 默认仅返回顶级模块（parent_module=None
+        # if self.action == 'partial_update' or self.action == 'destroy' or self.action == 'update' or self.action == 'retrieve':
+        if self.action in ('partial_update', 'destroy', 'update', 'retrieve'):
+            # 如果是部分更新，返回所有模块
+            queryset = Module.objects.all()
+        else:
+            queryset = Module.objects.filter(parent_module=None)
 
         # 如果请求中指定了 parent_module_id，返回该父模块的子模块
         project_id = self.request.query_params.get('project_id')
         if project_id:
             queryset = Module.objects.filter(project_id=project_id, parent_module=None)
         return queryset.select_related('project').prefetch_related('submodules')
-
 
     def perform_create(self, serializer):
         """自动设置创建人"""
@@ -40,6 +44,40 @@ class ModuleViewSet(viewsets.ModelViewSet):
         """自动设置更新人"""
         serializer.save(updated_by=self.request.user)
 
+    @action(detail=False, methods=['post'], url_path='rename')
+    def rename_module(self, request):
+        """重命名模块"""
+        module_id = request.data.get('id')
+        new_name = request.data.get('name')
+
+        if not module_id or not new_name:
+            return APIResponse(
+                code=ErrorCode.PARAM_ERROR.code,
+                message='缺少必要参数'
+            )
+
+        try:
+            module = Module.objects.get(id=module_id)
+            module.name = new_name
+            module.save()
+            return APIResponse(message='模块名称更新成功')
+        except Module.DoesNotExist:
+            return APIResponse(
+                code=ErrorCode.PARAM_ERROR.code,
+                message='模块不存在'
+            )
+
+    @action(detail=False, methods=['get'], url_path='all')
+    def all_modules(self, request):
+        """获取所有模块"""
+        data = request.query_params
+        project_id = data.get('project_id')
+        if project_id:
+            modules = Module.objects.filter(project_id=project_id)
+        else:
+            modules = Module.objects.all()
+        serializer = AllModuleSerializer(modules, many=True)
+        return APIResponse(data=serializer.data)
 
 
 class InterFaceViewSet(viewsets.ModelViewSet):

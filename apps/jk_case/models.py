@@ -99,15 +99,11 @@ class InterFace(TimeStampedModel):
         max_length=30,
         verbose_name='接口名称',
     )
-    url = models.CharField(max_length=500, verbose_name='接口路径')  # 增加长度
+    path = models.CharField(max_length=500, verbose_name='接口路径')  # 增加长度
     method = models.CharField(
         max_length=10,
         choices=METHOD_CHOICES,  # 限制选项
         verbose_name='请求方式'
-    )
-    headers = models.JSONField(  # 改为JSON字段
-        default=dict,
-        verbose_name='请求头'
     )
 
     class Meta:
@@ -132,10 +128,12 @@ class TestCase(TimeStampedModel):
         default=dict,
         verbose_name='请求参数'
     )
+    # # [{'type': 'status_code', 'value': 200}, {'type': 'jsonpath', 'path': '$.status', 'expected': 200}]
     assertions = models.JSONField(  # 结构化存储
         default=list,
         verbose_name='断言规则'
     )
+    # extract_rules = [{"name": "user_id", "path": "$.data.user.id"},{"name": "token", "path": "$.data.token"}]
     variable_extract = models.JSONField(  # 结构化存储
         default=list,
         verbose_name='变量提取规则'

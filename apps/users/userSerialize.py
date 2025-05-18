@@ -5,6 +5,9 @@ from django.contrib.auth import authenticate
 from common.error_codes import ErrorCode
 from common.exceptions import BusinessException
 import django_filters
+import logging
+
+logger = logging.getLogger('django')
 
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
@@ -16,22 +19,23 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
             password=attrs.get('password')
         )
         # 精准错误判断
-        print('before if ::: ')
         if not user:
             if not UserProfile.objects.filter(username=attrs['username']).exists():
                 raise BusinessException(ErrorCode.USER_NOT_EXISTS)
             else:
                 raise BusinessException(ErrorCode.PASSWORD_ERROR)
-
         data = super().validate(attrs)
-        print('login data ??? === ', data)
+        logger.info(f"login data <=> {data}")
+        from rest_framework_simplejwt.settings import api_settings
+        expire = api_settings.ACCESS_TOKEN_LIFETIME.total_seconds()
         return {
             "code": 0,
             "message": "登录成功",
             "data": {
                 "access": data["access"],
                 "refresh": data["refresh"],
-                "username": user.username
+                "username": user.username,
+                "expire": int(expire),
             }
         }
 
