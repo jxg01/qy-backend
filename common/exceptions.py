@@ -76,15 +76,3 @@ def custom_exception_handler(exc, context):
         }
     # 其他异常处理逻辑...
     return response
-
-
-def _parse_unique_field(error_msg: str) -> str:
-    """解析数据库唯一约束错误中的字段名（支持多种数据库）"""
-    patterns = [
-        r"Key $(.*?)$=$.*?$ already exists",  # PostgreSQL
-        r"Duplicate entry '.*?' for key '.*?\.(.*?)'"  # MySQL
-    ]
-    for pattern in patterns:
-        if match := re.search(pattern, error_msg):
-            return match.group(1)
-    return ''
