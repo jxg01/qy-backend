@@ -38,6 +38,12 @@ class InterFaceSerializer(BaseModelSerializer):
         # }
 
 
+class InterFaceIdNameSerializer(BaseModelSerializer):
+    class Meta:
+        model = InterFace
+        fields = ['id', 'name']
+
+
 class ModuleSerializer(BaseModelSerializer):
     # 递归序列化子模块
     children = serializers.SerializerMethodField()

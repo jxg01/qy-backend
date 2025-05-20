@@ -4,7 +4,8 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from .models import TestSuite, SuiteCaseRelation, TestExecution, InterFace, TestCase, Module
 from .serializers import (TestSuiteSerializer, SuiteCaseRelationSerializer, TestExecutionSerializer,
-                          InterFaceSerializer, TestCaseSerializer, ModuleSerializer, AllModuleSerializer)
+                          InterFaceSerializer, TestCaseSerializer, ModuleSerializer, AllModuleSerializer, InterFaceIdNameSerializer)
+from .filter_set import TestCaseFilter
 from datetime import timezone
 from common.error_codes import ErrorCode
 from common.handle_test.tasks import async_execute_suite
@@ -98,13 +99,34 @@ class InterFaceViewSet(viewsets.ModelViewSet):
         """自动设置更新人"""
         serializer.save(updated_by=self.request.user)
 
+    def get_queryset(self):
+        project_id = self.request.query_params.get('project_id')
+        if project_id:
+            return InterFace.objects.filter(
+                module__project_id=project_id
+            ) if project_id else InterFace.objects.none()
+        else:
+            return InterFace.objects.all()
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.filter_queryset(self.get_queryset())
+
+        # page = self.paginate_queryset(queryset)
+        # if page is not None:
+        #     serializer = self.get_serializer(page, many=True)
+        #     return self.get_paginated_response(serializer.data)
+
+        serializer = InterFaceIdNameSerializer(queryset, many=True)
+        return APIResponse(data=serializer.data)
+
 
 class TestCaseViewSet(viewsets.ModelViewSet):
-    queryset = TestCase.objects.all()
+    queryset = TestCase.objects.all().order_by('-id')
     serializer_class = TestCaseSerializer  # 确保已导入 InterFaceCaseSerializer
     permission_classes = [permissions.IsAuthenticated]
-    # filterset_fields = ['project', 'case_name']  # 可选字段过滤
-    # search_fields = ['case_name', 'url']        # 可选搜索字段
+
+    filterset_class = TestCaseFilter
+    filterset_fields = ['name']  # 可选字段过滤
 
     def perform_create(self, serializer):
         """自动设置创建人"""
@@ -116,6 +138,30 @@ class TestCaseViewSet(viewsets.ModelViewSet):
     def perform_update(self, serializer):
         """自动设置更新人"""
         serializer.save(updated_by=self.request.user)
+
+    def list(self, request, *args, **kwargs):
+        project_id = self.request.query_params.get('project_id')
+        interface_id = self.request.query_params.get('interface_id')
+        case_name = self.request.query_params.get('name')
+
+        # 初始化查询集
+        queryset = TestCase.objects.all()
+
+        # 动态构建过滤条件
+        if project_id:
+            queryset = queryset.filter(interface__module__project_id=project_id)
+        if interface_id:
+            queryset = queryset.filter(interface_id=interface_id)
+        if case_name:
+            queryset = queryset.filter(name__icontains=case_name)  # 模糊匹配
+
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+
+        serializer = self.serializer_class(queryset, many=True)
+        return APIResponse(data=serializer.data)
 
 
 class TestSuiteViewSet(viewsets.ModelViewSet):
