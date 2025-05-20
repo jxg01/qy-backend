@@ -10,7 +10,7 @@ class Projects(models.Model):
         ordering = ['-created_at']
 
     name = models.CharField(max_length=10, verbose_name='项目名称', help_text='项目名称')
-    base_url = models.URLField(max_length=30, verbose_name='项目地址', help_text='项目地址')
+    base_url = models.CharField(max_length=30, verbose_name='项目地址', help_text='项目地址')
     description = models.TextField(blank=True, verbose_name='描述', help_text='描述')
     # modify_time = models.DateTimeField(auto_now=True, verbose_name='修改时间', help_text='修改时间')
     # create_time = models.DateTimeField(default=timezone.now, verbose_name='创建时间', help_text='创建时间')

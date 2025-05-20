@@ -1,6 +1,6 @@
 from rest_framework.views import exception_handler
 from rest_framework import status, serializers
-from rest_framework.exceptions import APIException, NotAuthenticated
+from rest_framework.exceptions import APIException, NotAuthenticated, AuthenticationFailed
 from rest_framework_simplejwt.exceptions import InvalidToken
 from common.error_codes import ErrorCode
 from django.http.response import Http404
@@ -36,6 +36,14 @@ def custom_exception_handler(exc, context):
     log.info(f'response type => {type(exc)}')
 
     if isinstance(exc, NotAuthenticated):
+        response.status_code = status.HTTP_401_UNAUTHORIZED
+        response.data = {
+            'code': ErrorCode.UN_AUTHORIZED.code,
+            'message': ErrorCode.UN_AUTHORIZED.message,
+        }
+        return response
+
+    if isinstance(exc, AuthenticationFailed):
         response.status_code = status.HTTP_401_UNAUTHORIZED
         response.data = {
             'code': ErrorCode.UN_AUTHORIZED.code,
