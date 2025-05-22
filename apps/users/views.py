@@ -1,5 +1,5 @@
-from users.models import UserProfile
-from users.userSerialize import UserSerializer, CustomTokenObtainPairSerializer, UserRegisterSerializer, UserFilter
+from users.models import UserProfile, UserSuggestion
+from users.userSerialize import UserSerializer, CustomTokenObtainPairSerializer, UserRegisterSerializer, UserFilter, UserSuggestionSerialize
 from rest_framework import viewsets, permissions, mixins
 from common.utils import APIResponse
 from rest_framework.response import Response
@@ -48,3 +48,15 @@ class UserRegistrationViewSet(mixins.CreateModelMixin, viewsets.GenericViewSet):
             'data': serializer.data
         }
         return Response(data=res_data, status=status.HTTP_200_OK)
+
+
+class UserSuggestionViewSet(viewsets.GenericViewSet,
+                            mixins.CreateModelMixin,
+                            mixins.DestroyModelMixin,
+                            mixins.ListModelMixin):
+    queryset = UserSuggestion.objects.all()
+    serializer_class = UserSuggestionSerialize
+
+    def perform_create(self, serializer):
+        """自动设置创建人"""
+        serializer.save(created_by=self.request.user)

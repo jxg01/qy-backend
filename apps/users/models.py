@@ -17,3 +17,20 @@ class UserProfile(AbstractUser):
     #         return self.nick_name
     #     else:
     #         return self.username
+
+
+class UserSuggestion(models.Model):
+    class Meta:
+        db_table = 'qy_user_suggestion'
+
+    content = models.TextField(max_length=1024, verbose_name='建议内容', help_text='建议内容')
+    created_by = models.ForeignKey(
+        UserProfile,
+        on_delete=models.CASCADE,
+        related_name='%(class)s_created'
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+
+
+

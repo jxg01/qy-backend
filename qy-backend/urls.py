@@ -17,7 +17,7 @@ from django.contrib import admin
 
 from django.urls import path, include
 from rest_framework_simplejwt.views import TokenRefreshView
-from users.views import UserViewSet, UserRegistrationViewSet, CustomTokenObtainPairView
+from users.views import UserViewSet, UserRegistrationViewSet, CustomTokenObtainPairView, UserSuggestionViewSet
 from jk_case import views
 from projects.views import ProjectsView, GlobalVariableView
 # from result.views import ResultView
@@ -27,6 +27,7 @@ from mt_tool.views import Tools
 
 router = DefaultRouter()
 router.register('users', UserViewSet)
+router.register('suggestion', UserSuggestionViewSet)
 router.register('projects', ProjectsView)
 router.register('register', UserRegistrationViewSet, basename='register')
 router.register('variable', GlobalVariableView)
