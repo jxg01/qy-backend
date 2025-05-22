@@ -70,11 +70,11 @@ class AllModuleSerializer(BaseModelSerializer):
 
 class TestCaseSerializer(BaseModelSerializer):
     # 序列化输出时返回项目名称，反序列化时支持通过名称关联项目对象
-    interface = serializers.SlugRelatedField(
-        queryset=InterFace.objects.all(),  # 确保导入Project模型
-        slug_field='name',
-        write_only=True,  # 仅在反序列化时生效
-    )
+    # interface = serializers.SlugRelatedField(
+    #     queryset=InterFace.objects.all(),  # 确保导入Project模型
+    #     slug_field='name',
+    #     write_only=True,  # 仅在反序列化时生效
+    # )
     interface_name = serializers.CharField(
         source='interface.name',
         read_only=True,

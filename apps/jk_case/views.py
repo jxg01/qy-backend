@@ -145,7 +145,7 @@ class TestCaseViewSet(viewsets.ModelViewSet):
         case_name = self.request.query_params.get('name')
 
         # 初始化查询集
-        queryset = TestCase.objects.all()
+        queryset = TestCase.objects.all().order_by('-id')
 
         # 动态构建过滤条件
         if project_id:

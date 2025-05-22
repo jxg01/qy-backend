@@ -136,7 +136,7 @@ class TestCase(TimeStampedModel):
         default=dict,
         verbose_name='请求体'
     )
-    # # [{'type': 'status_code', 'value': 200}, {'type': 'jsonpath', 'path': '$.status', 'expected': 200}]
+    # # [{'type': 'status_code', 'expected': 200}, {'type': 'jsonpath', 'path': '$.status', 'expected': 200}]
     assertions = models.JSONField(  # 结构化存储
         default=list,
         verbose_name='断言规则'
