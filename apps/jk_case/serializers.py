@@ -84,11 +84,11 @@ class TestCaseSerializer(BaseModelSerializer):
     class Meta:
         model = TestCase
         fields = '__all__'
-        extra_kwargs = {
-            'assertions': {'default': list},
-            'variable_extract': {'default': list},
-            'body': {'default': dict},
-        }
+        # extra_kwargs = {
+        #     'assertions': {'default': list},
+        #     'variable_extract': {'default': list},
+        #     'body': {'default': dict},
+        # }
 
 
 class SuiteCaseRelationSerializer(serializers.ModelSerializer):

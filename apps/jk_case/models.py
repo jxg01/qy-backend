@@ -122,11 +122,19 @@ class TestCase(TimeStampedModel):
     interface = models.ForeignKey(InterFace, on_delete=models.CASCADE, verbose_name='接口')
     name = models.CharField(max_length=30, verbose_name='用例名称')
     description = models.CharField(max_length=100, null=True, verbose_name='用例描述')
+    headers = models.JSONField(  # 改为JSON字段
+        default=dict,
+        verbose_name='请求头'
+    )
+    params = models.JSONField(  # 改为JSON字段
+        default=dict,
+        verbose_name='请求参数'
+    )
     # body => {'data': {'page': '${page}', 'per_page': '${per_page}'}, 'type': 'formdata'}
     # type => formdata | json
     body = models.JSONField(  # 改为JSON字段
         default=dict,
-        verbose_name='请求参数'
+        verbose_name='请求体'
     )
     # # [{'type': 'status_code', 'value': 200}, {'type': 'jsonpath', 'path': '$.status', 'expected': 200}]
     assertions = models.JSONField(  # 结构化存储

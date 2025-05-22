@@ -48,11 +48,6 @@ class ProjectsSerialize(serializers.ModelSerializer):
                     'max_length': '项目名称不能超过10个字符',
                     'blank': '项目名称不能为空',
                 }
-            },
-            'base_url': {
-                'error_messages': {
-                    'invalid': '请输入有效的URL地址'
-                }
             }
         }
 
