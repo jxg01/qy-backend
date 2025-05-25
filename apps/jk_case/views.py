@@ -4,7 +4,8 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from .models import TestSuite, SuiteCaseRelation, TestExecution, InterFace, TestCase, Module
 from .serializers import (TestSuiteSerializer, SuiteCaseRelationSerializer, TestExecutionSerializer,
-                          InterFaceSerializer, TestCaseSerializer, ModuleSerializer, AllModuleSerializer, InterFaceIdNameSerializer)
+                          InterFaceSerializer, TestCaseSerializer, ModuleSerializer, AllModuleSerializer,
+                          InterFaceIdNameSerializer, SimpleTestCaseSerializer)
 from .filter_set import TestCaseFilter
 from datetime import timezone
 from common.error_codes import ErrorCode
@@ -163,9 +164,14 @@ class TestCaseViewSet(viewsets.ModelViewSet):
         serializer = self.serializer_class(queryset, many=True)
         return APIResponse(data=serializer.data)
 
+    @action(detail=False, methods=['get'], url_path='simple-cases')
+    def simple_cases(self, request):
+        modules = TestCase.objects.all()
+        serializer = SimpleTestCaseSerializer(modules, many=True)
+        return APIResponse(data=serializer.data)
 
 class TestSuiteViewSet(viewsets.ModelViewSet):
-    queryset = TestSuite.objects.all()
+    queryset = TestSuite.objects.all().order_by('-id')
     serializer_class = TestSuiteSerializer
     permission_classes = [permissions.IsAuthenticated]
     # filterset_fields = ['project', 'name']

@@ -67,7 +67,7 @@ class TestSuite(TimeStampedModel):
     project = models.ForeignKey(Projects, on_delete=models.CASCADE, verbose_name='项目名称', help_text='项目名称')
     name = models.CharField(max_length=30, unique=True, verbose_name='套件名称', help_text='套件名称')
     description = models.CharField(max_length=100, null=True, verbose_name='套件描述', help_text='套件描述')
-    cases = models.ManyToManyField('TestCase', verbose_name='用例', help_text='用例')
+    cases = models.ManyToManyField('TestCase', verbose_name='用例1', help_text='用例')
 
     def __str__(self):
         return self.name

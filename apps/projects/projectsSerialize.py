@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from projects.models import Projects, GlobalVariable
+from projects.models import Projects, GlobalVariable, ProjectEnvs
 from common.error_codes import ErrorCode
 from common.exceptions import BusinessException
 import django_filters
@@ -24,20 +24,47 @@ class GlobalVariableFilter(django_filters.FilterSet):
         fields = ['name']
 
 
+class ProjectEnvsSerialize(serializers.ModelSerializer):
+    updated_at = serializers.DateTimeField(format='%Y-%m-%d %H:%M:%S', read_only=True)
+    created_at = serializers.DateTimeField(format='%Y-%m-%d %H:%M:%S', read_only=True)
+    created_by = serializers.CharField(
+        source='created_by.username',
+        read_only=True,
+        help_text="创建人"
+    )
+    updated_by = serializers.CharField(
+        source='updated_by.username',
+        read_only=True,
+        help_text="更新人"
+    )
+
+    class Meta:
+        model = ProjectEnvs
+        fields = '__all__'
+        ordering = ['-id']
+
+
 class ProjectsSerialize(serializers.ModelSerializer):
     updated_at = serializers.DateTimeField(format='%Y-%m-%d %H:%M:%S', read_only=True)
     created_at = serializers.DateTimeField(format='%Y-%m-%d %H:%M:%S', read_only=True)
-    creator = serializers.CharField(
-        source='creator.username',
+    created_by = serializers.CharField(
+        source='created_by.username',
         read_only=True,
-        help_text="项目创建人"
+        help_text="创建人"
     )
+    updated_by = serializers.CharField(
+        source='updated_by.username',
+        read_only=True,
+        help_text="更新人"
+    )
+    envs = ProjectEnvsSerialize(many=True, read_only=True)
 
     # modules = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
         model = Projects
-        fields = ('id', 'name', 'base_url', 'description', 'updated_at', 'created_at', 'creator')
+        # fields = ('id', 'name', 'description', 'updated_by', 'updated_at', 'created_at', 'created_by', 'envs')
+        fields = '__all__'
         # 增强字段验证规则
         extra_kwargs = {
             'name': {
@@ -111,3 +138,7 @@ class GlobalVariableSerialize(serializers.ModelSerializer):
         if GlobalVariable.objects.filter(name__iexact=value).exists():
             raise BusinessException(ErrorCode.VARIABLE_NAME_EXISTS)
         return value
+
+
+
+

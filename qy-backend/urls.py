@@ -19,7 +19,7 @@ from django.urls import path, include
 from rest_framework_simplejwt.views import TokenRefreshView
 from users.views import UserViewSet, UserRegistrationViewSet, CustomTokenObtainPairView, UserSuggestionViewSet
 from jk_case import views
-from projects.views import ProjectsView, GlobalVariableView
+from projects.views import ProjectsView, GlobalVariableView, ProjectsEnvsView
 # from result.views import ResultView
 from rest_framework.documentation import include_docs_urls
 from rest_framework.routers import DefaultRouter
@@ -31,6 +31,7 @@ router.register('suggestion', UserSuggestionViewSet)
 router.register('projects', ProjectsView)
 router.register('register', UserRegistrationViewSet, basename='register')
 router.register('variable', GlobalVariableView)
+router.register('envs', ProjectsEnvsView)
 # about case
 router.register(r'suite', views.TestSuiteViewSet)
 router.register(r'execution', views.TestExecutionViewSet)

@@ -1,6 +1,7 @@
 from common.utils import APIResponse
-from projects.models import Projects, GlobalVariable
-from projects.projectsSerialize import ProjectsSerialize, ProjectsFilter, GlobalVariableSerialize, GlobalVariableFilter
+from projects.models import Projects, GlobalVariable, ProjectEnvs
+from projects.projectsSerialize import (ProjectsSerialize, ProjectsFilter, GlobalVariableSerialize,
+                                        GlobalVariableFilter, ProjectEnvsSerialize)
 from rest_framework import viewsets, permissions
 from rest_framework import status
 import logging
@@ -71,3 +72,41 @@ class GlobalVariableView(viewsets.ModelViewSet):
         logger.info(
             f"用户 {self.request.user} 将全局变量 {old_name} 修改为 {instance.name}"
         )
+
+
+class ProjectsEnvsView(viewsets.ModelViewSet):
+    queryset = ProjectEnvs.objects.all().order_by('-id')
+    serializer_class = ProjectEnvsSerialize
+    permission_classes = [permissions.IsAuthenticated]
+    # # 默认搜索
+    # filterset_fields = ['name']
+    # # 自定义模糊搜索 字段
+    # filterset_class = ProjectsFilter
+
+    def perform_create(self, serializer):
+        """自动设置创建人"""
+        serializer.save(
+            created_by=self.request.user,
+            updated_by=self.request.user
+        )
+
+    def perform_update(self, serializer):
+        """自动设置更新人"""
+        serializer.save(updated_by=self.request.user)
+
+    def list(self, request, *args, **kwargs):
+        project_id = self.request.query_params.get('project_id')
+        # 初始化查询集
+        queryset = ProjectEnvs.objects.all().order_by('-id')
+
+        # 动态构建过滤条件
+        if project_id:
+            queryset = queryset.filter(project=project_id)
+
+        # page = self.paginate_queryset(queryset)
+        # if page is not None:
+        #     serializer = self.get_serializer(page, many=True)
+        #     return self.get_paginated_response(serializer.data)
+
+        serializer = self.serializer_class(queryset, many=True)
+        return APIResponse(data=serializer.data)

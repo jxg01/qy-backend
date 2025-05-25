@@ -91,9 +91,15 @@ class TestCaseSerializer(BaseModelSerializer):
         # }
 
 
+class SimpleTestCaseSerializer(BaseModelSerializer):
+    class Meta:
+        model = TestCase
+        fields = ['id', 'name']
+
+
 class SuiteCaseRelationSerializer(serializers.ModelSerializer):
     # case_name = serializers.CharField(source='case.case_name', read_only=True)
-    case_detail = TestCaseSerializer(source='case', read_only=True, help_text='关联的用例详情')
+    # case_detail = TestCaseSerializer(source='case', read_only=True, help_text='关联的用例详情')
 
     class Meta:
         model = SuiteCaseRelation
@@ -105,16 +111,19 @@ class SuiteCaseRelationSerializer(serializers.ModelSerializer):
 
 
 class TestSuiteSerializer(BaseModelSerializer):
-    cases = SuiteCaseRelationSerializer(
-        source='suitecaserelation_set',
+    # 序列化输出时返回case id列表，反序列化时支持通过id列表关联用例
+    cases = serializers.PrimaryKeyRelatedField(
+        queryset=TestCase.objects.all(),
         many=True,
-        read_only=True
+        write_only=True,  # 仅在反序列化时生效
+        help_text="关联用例ID列表"
     )
+
     # 序列化输出时返回项目名称，反序列化时支持通过名称关联项目对象
     project = serializers.SlugRelatedField(
         queryset=Projects.objects.all(),  # 确保导入Project模型
-        slug_field='name',
-        write_only=True,  # 仅在反序列化时生效
+        slug_field='id',
+        # write_only=True,  # 仅在反序列化时生效
     )
     project_name = serializers.CharField(
         source='project.name',
@@ -133,11 +142,32 @@ class TestSuiteSerializer(BaseModelSerializer):
         model = TestSuite
         fields = '__all__'
 
+    # 处理多对多关系保存
+    def create(self, validated_data):
+        cases = validated_data.pop('cases', [])
+        suite = TestSuite.objects.create(**validated_data)
+        suite.cases.set(cases)  # 直接设置多对多关系
+        return suite
+
+    def update(self, instance, validated_data):
+        cases = validated_data.pop('cases', None)
+        instance = super().update(instance, validated_data)
+        if cases is not None:
+            instance.cases.set(cases)
+        return instance
+
     def get_execution_status(self, obj):
         """获取套件最新执行记录的状态"""
         # 获取关联的 TestExecution 记录，按执行时间降序取第一条
         latest_execution = obj.testexecution_set.order_by('-started_at').first()
         return latest_execution.status if latest_execution else 'pending'
+
+    def to_representation(self, instance):
+        print('in res ', instance.cases)
+        data = super().to_representation(instance)
+        # 手动添加输出时的cases字段
+        data['cases'] = instance.cases.values_list('id', flat=True)
+        return data
 
 
 
