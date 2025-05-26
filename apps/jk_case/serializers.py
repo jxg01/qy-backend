@@ -112,12 +112,19 @@ class SuiteCaseRelationSerializer(serializers.ModelSerializer):
 
 class TestSuiteSerializer(BaseModelSerializer):
     # 序列化输出时返回case id列表，反序列化时支持通过id列表关联用例
-    cases = serializers.PrimaryKeyRelatedField(
-        queryset=TestCase.objects.all(),
-        many=True,
-        write_only=True,  # 仅在反序列化时生效
-        help_text="关联用例ID列表"
+    # cases = serializers.PrimaryKeyRelatedField(
+    #     queryset=TestCase.objects.all(),
+    #     many=True,
+    #     write_only=True,  # 仅在反序列化时生效
+    #     help_text="关联用例ID列表"
+    # )
+    cases = serializers.ListField(
+        child=serializers.IntegerField(),
+        write_only=True,
+        required=True,
+        help_text="用例ID列表（带顺序）"
     )
+    # cases = serializers.SerializerMethodField(read_only=True)
 
     # 序列化输出时返回项目名称，反序列化时支持通过名称关联项目对象
     project = serializers.SlugRelatedField(
@@ -145,16 +152,34 @@ class TestSuiteSerializer(BaseModelSerializer):
     # 处理多对多关系保存
     def create(self, validated_data):
         cases = validated_data.pop('cases', [])
-        suite = TestSuite.objects.create(**validated_data)
-        suite.cases.set(cases)  # 直接设置多对多关系
-        return suite
+        instance = TestSuite.objects.create(**validated_data)
+        # suite.cases.set(cases)  # 直接设置多对多关系
+
+        # 批量创建顺序记录
+        SuiteCaseRelation.objects.bulk_create([
+            SuiteCaseRelation(
+                suite=instance,
+                case_id=case_id,
+                order=idx  # 根据列表顺序生成order
+            ) for idx, case_id in enumerate(cases)
+        ])
+        return instance
 
     def update(self, instance, validated_data):
         cases = validated_data.pop('cases', None)
-        instance = super().update(instance, validated_data)
         if cases is not None:
-            instance.cases.set(cases)
-        return instance
+            # 删除旧关联
+            instance.suitecaserelation_set.all().delete()
+
+            # 创建新关联
+            SuiteCaseRelation.objects.bulk_create([
+                SuiteCaseRelation(
+                    suite=instance,
+                    case_id=case_id,
+                    order=idx
+                ) for idx, case_id in enumerate(cases)
+            ])
+        return super().update(instance, validated_data)
 
     def get_execution_status(self, obj):
         """获取套件最新执行记录的状态"""
@@ -163,12 +188,10 @@ class TestSuiteSerializer(BaseModelSerializer):
         return latest_execution.status if latest_execution else 'pending'
 
     def to_representation(self, instance):
-        print('in res ', instance.cases)
         data = super().to_representation(instance)
         # 手动添加输出时的cases字段
-        data['cases'] = instance.cases.values_list('id', flat=True)
+        data['cases'] = instance.suitecaserelation_set.all().values_list('case_id', flat=True)
         return data
-
 
 
 class CaseExecutionSerializer(serializers.ModelSerializer):

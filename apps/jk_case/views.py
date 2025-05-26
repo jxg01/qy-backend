@@ -166,8 +166,12 @@ class TestCaseViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'], url_path='simple-cases')
     def simple_cases(self, request):
-        modules = TestCase.objects.all()
-        serializer = SimpleTestCaseSerializer(modules, many=True)
+        project_id = request.query_params.get('project_id')
+        queryset = TestCase.objects.all().order_by('-id')
+        if project_id:
+            queryset = queryset.filter(interface__module__project_id=project_id)
+
+        serializer = SimpleTestCaseSerializer(queryset, many=True)
         return APIResponse(data=serializer.data)
 
 class TestSuiteViewSet(viewsets.ModelViewSet):
