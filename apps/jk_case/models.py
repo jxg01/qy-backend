@@ -203,8 +203,10 @@ class CaseExecution(models.Model):
         db_table = 'qy_case_execution'
     execution = models.ForeignKey(
         TestExecution,
-        on_delete=models.CASCADE,
-        related_name='cases'
+        on_delete=models.SET_NULL,
+        related_name='cases',
+        null=True,
+        blank=True,
     )
     case = models.ForeignKey(
         TestCase,
@@ -220,3 +222,8 @@ class CaseExecution(models.Model):
     extracted_vars = models.JSONField(default=list)
     duration = models.FloatField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
+    executed_by = models.ForeignKey(
+        UserProfile,
+        on_delete=models.SET_NULL,
+        null=True
+    )

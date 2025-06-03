@@ -196,6 +196,8 @@ class TestSuiteSerializer(BaseModelSerializer):
 
 class CaseExecutionSerializer(serializers.ModelSerializer):
     case_name = serializers.CharField(source='case.case_name', read_only=True)
+    executed_by = serializers.CharField(source='executed_by.username')
+    created_at = serializers.DateTimeField(format='%Y-%m-%d %H:%M:%S')
 
     class Meta:
         model = CaseExecution
@@ -203,7 +205,7 @@ class CaseExecutionSerializer(serializers.ModelSerializer):
             'id', 'case', 'case_name', 'status',
             'request_data', 'response_data',
             'assertions_result', 'extracted_vars',
-            'duration', 'created_at'
+            'duration', 'created_at', 'executed_by'
         ]
 
 
@@ -221,3 +223,65 @@ class TestExecutionSerializer(serializers.ModelSerializer):
             'id', 'suite', 'status', 'started_at',
             'ended_at', 'duration', 'executed_by', 'cases'
         ]
+
+
+class ExecutionHistorySerializer(serializers.Serializer):
+    # 通用字段
+    id = serializers.IntegerField(source='s_id', allow_null=True)
+    # 通用字段
+    record_type = serializers.CharField()
+    record_name = serializers.CharField()
+    status = serializers.CharField()
+    started_at = serializers.DateTimeField(format='%Y-%m-%d %H:%M:%S')
+    duration = serializers.FloatField(allow_null=True)
+    executed_by_username = serializers.CharField()
+
+    # 套件执行特有字段
+    suite_total_cases = serializers.IntegerField(allow_null=True, required=False)
+    suite_passed_cases = serializers.IntegerField(allow_null=True, required=False)
+    suite_execution_id = serializers.IntegerField(allow_null=True, required=False)
+    suite_suite_id = serializers.IntegerField(allow_null=True, required=False)
+
+    # 用例执行特有字段
+    case_execution_id = serializers.IntegerField(allow_null=True, required=False)
+    case_suite_id = serializers.IntegerField(allow_null=True, required=False)
+    case_suite_name = serializers.CharField(allow_null=True, required=False)
+    case_case_id = serializers.IntegerField(allow_null=True, required=False)
+    case_case_name = serializers.CharField(allow_null=True, required=False)
+
+    def to_representation(self, instance):
+        """统一字段命名并清理无关字段"""
+        data = super().to_representation(instance)
+
+        # 根据类型处理数据
+        if data['record_type'] == 'suite':
+            # 套件执行记录
+            result = {
+                'id': data['suite_execution_id'],
+                'type': 'suite',
+                'name': data['record_name'],
+                'status': data['status'],
+                'started_at': data['started_at'],
+                'duration': data['duration'],
+                'executed_by_username': data['executed_by_username'],
+                'total_cases': data['suite_total_cases'],
+                'passed_cases': data['suite_passed_cases'],
+                'suite_id': data['suite_suite_id']
+            }
+        else:
+            # 用例执行记录
+            result = {
+                'id': data['case_execution_id'],
+                'type': 'case',
+                'name': data['record_name'],
+                'status': data['status'],
+                'started_at': data['started_at'],
+                'duration': data['duration'],
+                'executed_by_username': data['executed_by_username'],
+                'suite_id': data['case_suite_id'],
+                'suite_name': data['case_suite_name'],
+                'case_id': data['case_case_id'],
+                'case_name': data['case_case_name']
+            }
+
+        return result

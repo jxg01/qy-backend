@@ -15,6 +15,10 @@ Including another URLconf
 """
 from django.contrib import admin
 
+from drf_yasg.views import get_schema_view
+from drf_yasg import openapi
+from rest_framework import permissions
+
 from django.urls import path, include
 from rest_framework_simplejwt.views import TokenRefreshView
 from users.views import UserViewSet, UserRegistrationViewSet, CustomTokenObtainPairView, UserSuggestionViewSet
@@ -34,15 +38,35 @@ router.register('variable', GlobalVariableView)
 router.register('envs', ProjectsEnvsView)
 # about case
 router.register(r'suite', views.TestSuiteViewSet)
-router.register(r'execution', views.TestExecutionViewSet)
+router.register(r'SuiteExecutionResult', views.TestExecutionViewSet)
+router.register(r'CaseExecutionResult', views.CaseExecutionViewSet)
+
+router.register(r'execution-history', views.ExecutionHistoryViewSet, basename='execution-history')
+
 router.register(r'interfaces', views.InterFaceViewSet, basename='interfacecase')
 router.register(r'testcases', views.TestCaseViewSet, basename='testcase')
 router.register('modules', views.ModuleViewSet, basename='module')
+
+schema_view = get_schema_view(
+    openapi.Info(
+        title="接口自动化测试平台 API",
+        default_version='v1',
+        description="接口测试平台所有API接口的交互文档",
+        terms_of_service="https://www.example.com/terms/",
+        contact=openapi.Contact(email="your@email.com"),
+        license=openapi.License(name="BSD License"),
+    ),
+    public=True,
+    permission_classes=[permissions.AllowAny],
+)
+
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     # path('docs/', include_docs_urls(title='倾Y系统')),
     path('api-auth/', include('rest_framework.urls')),
+    # Swagger两种风格
+    path('swagger/', schema_view.with_ui('swagger', cache_timeout=0), name='schema-swagger-ui'),  # 推荐
 
     path('api/login/', CustomTokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),

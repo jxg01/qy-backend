@@ -49,6 +49,7 @@ INSTALLED_APPS = [
     'jk_case.apps.JkCaseConfig',
     'projects.apps.ProjectsConfig',
     'corsheaders',
+    'drf_yasg',
 ]
 
 CORS_ORIGIN_ALLOW_ALL = True
@@ -93,7 +94,7 @@ WSGI_APPLICATION = 'qy-backend.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
-        'NAME': 'supermarket',
+        'NAME': 'easy_api',
         'USER': 'root',
         'PASSWORD': '12345678',
         'HOST': '127.0.0.1',

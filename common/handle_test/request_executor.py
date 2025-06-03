@@ -25,26 +25,34 @@ class RequestExecutor:
         if case_data['method'] == 'GET':
             processed_data['params'] = {
                 k: self.variable_pool.parse_placeholder(v)
-                for k, v in case_data['body'].get('data', []).items()
+                for k, v in case_data['params'].items()
             }
         else:
-            # 处理不同参数类型
-            if case_data['body'].get('type') == 'json':
-                processed_data['json'] = json.loads(
-                    self.variable_pool.parse_placeholder(
-                        json.dumps(case_data['body'].get('data', []))
-                    )
-                )
-            elif case_data['body'].get('type') == 'formdata':
-                processed_data['data'] = {
-                    k: self.variable_pool.parse_placeholder(v)
-                    for k, v in case_data['body'].get('data', []).items()
-                }
+            log.error(type(case_data['body']))
+            log.error(case_data['body'])
+            processed_data['data'] = {
+                k: self.variable_pool.parse_placeholder(v)
+                for k, v in case_data['body'].items()
+            }
+            # # 处理不同参数类型
+            # 备注： 暂时没有加类型判断，统一使用 data
+            # if case_data['body'].get('type') == 'json':
+            #     processed_data['json'] = json.loads(
+            #         self.variable_pool.parse_placeholder(
+            #             json.dumps(case_data['body'].get('data', []))
+            #         )
+            #     )
+            # elif case_data['body'].get('type') == 'formdata':
+            #     processed_data['data'] = {
+            #         k: self.variable_pool.parse_placeholder(v)
+            #         for k, v in case_data['body'].get('data', []).items()
+            #     }
+
         return processed_data
 
     def execute(self, case_data: dict):
         prepared = self.prepare_request(case_data)
-        return self.session.request(**prepared)
+        return self.session.request(**prepared), prepared
 
 
 if __name__ == '__main__':

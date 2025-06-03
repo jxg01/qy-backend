@@ -25,6 +25,9 @@ class ErrorCode(Enum):
     # variable
     VARIABLE_NAME_EXISTS = (3001, "变量名称不能重复")
 
+    # 用例
+    TESTCASE_DISABLED = (4001, "用例已经被禁用")
+
     # 后续新增错误码只需在此添加
 
     def __init__(self, code: int, message: str):

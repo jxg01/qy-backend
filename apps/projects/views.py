@@ -24,7 +24,7 @@ class ProjectsView(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         """自动设置创建人"""
-        serializer.save(creator=self.request.user)
+        serializer.save(created_by=self.request.user)
 
     def perform_update(self, serializer):
         # 记录修改日志

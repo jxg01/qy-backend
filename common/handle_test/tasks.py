@@ -103,7 +103,7 @@ def async_execute_suite(self, execution_id):
                     # assert_type参数接收：
                     # [{"type": "status_code", "value": 200}, {'type': 'jsonpath_value', 'path': '$.status', 'expected': 200}]
                     assert_type = assertion['type']
-                    assert_value = assertion['value']
+                    assert_value = assertion['expected']
                     try:
                         assert_func = ASSERTION_MAPPING[assert_type]
                         assert_func(response, assert_value)

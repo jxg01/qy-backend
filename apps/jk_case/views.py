@@ -2,15 +2,19 @@ from common.utils import APIResponse
 from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from .models import TestSuite, TestExecution, InterFace, TestCase, Module
+from .models import TestSuite, TestExecution, InterFace, TestCase, Module, CaseExecution
 from .serializers import (TestSuiteSerializer, TestExecutionSerializer,
                           InterFaceSerializer, TestCaseSerializer, ModuleSerializer, AllModuleSerializer,
-                          InterFaceIdNameSerializer, SimpleTestCaseSerializer)
+                          InterFaceIdNameSerializer, SimpleTestCaseSerializer, CaseExecutionSerializer, ExecutionHistorySerializer)
 from .filter_set import TestCaseFilter, SuiteFilter
 from datetime import timezone
 from common.error_codes import ErrorCode
 from common.handle_test.tasks import async_execute_suite
+from common.handle_test.runcase import execute_case
+from common.exceptions import BusinessException
 import logging
+
+from django.db.models import Count, F, Q, Value, CharField
 
 log = logging.getLogger('django')
 
@@ -174,6 +178,36 @@ class TestCaseViewSet(viewsets.ModelViewSet):
         serializer = SimpleTestCaseSerializer(queryset, many=True)
         return APIResponse(data=serializer.data)
 
+    @action(detail=True, methods=['post'], url_path='execute')
+    def execute(self, request, pk=None):
+        """
+        request example:
+            {"env_url": "http://127.0.0.1:8000"}
+        """
+        case = self.get_object()
+        env_url = request.data.get('env_url')
+
+        if not case.enabled:
+            raise BusinessException(ErrorCode.TESTCASE_DISABLED)
+
+        execute_case(case_obj=case, execute_env=env_url, executed_by=request.user)
+
+        return APIResponse({'code': 0, 'message': '执行完成'})
+
+    @action(detail=True, methods=['get'], url_path='history')
+    def history(self, request, pk=None):
+        """
+        request example:
+
+        仅返回最近的10次执行记录
+        """
+        case_instance = self.get_object()
+
+        queryset = CaseExecution.objects.filter(case=case_instance).order_by('-created_at')[:10]
+
+        serializer = CaseExecutionSerializer(queryset, many=True)
+
+        return APIResponse(data=serializer.data)
 
 class TestSuiteViewSet(viewsets.ModelViewSet):
     queryset = TestSuite.objects.all().order_by('-id')
@@ -342,9 +376,9 @@ class TestSuiteViewSet(viewsets.ModelViewSet):
             )
         except Exception as e:
             # 回滚执行记录状态
-            # execution.status = 'failed'
-            # execution.ended_at = timezone.now()
-            # execution.save()
+            execution.status = 'failed'
+            execution.ended_at = timezone.now()
+            execution.save()
             return Response(
                 {'error': f'任务提交失败: {str(e)}'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
@@ -386,13 +420,147 @@ class TestExecutionViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
-    @action(detail=True, methods=['get'])
-    def status(self, request, pk=None):
-        """查询执行状态"""
-        execution = self.get_object()
-        progress = f"{execution.cases.exclude(status='pending').count()}/{execution.cases.count()}"
-        return Response({
-            'execution_id': execution.id,
-            'status': execution.status,
-            'progress': progress
-        })
+
+
+class CaseExecutionViewSet(viewsets.ModelViewSet):
+    queryset = CaseExecution.objects.all()
+    serializer_class = CaseExecutionSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+
+class ExecutionHistoryViewSet(viewsets.ModelViewSet):
+    serializer_class = ExecutionHistorySerializer
+    http_method_names = ['get']  # 只允许 GET 请求
+
+    def get_queryset(self):
+        # 返回空查询集，因为我们重写了 list 方法
+        return TestExecution.objects.none()
+
+    # def list(self, request, *args, **kwargs):
+    #     # 获取套件执行记录
+    #     suite_executions = TestExecution.objects.annotate(
+    #         type=Value('suite'),
+    #         name=F('suite__name'),
+    #         executed_by_username=F('executed_by__username'),
+    #         total_cases=Count('cases', distinct=True),
+    #         passed_cases=Count('cases', filter=Q(cases__status='passed'), distinct=True)
+    #     ).values(
+    #         'id', 'type', 'name', 'status', 'started_at',
+    #         'duration', 'executed_by_username',
+    #         'total_cases', 'passed_cases'
+    #     )
+    #
+    #     # 获取用例执行记录
+    #     case_executions = CaseExecution.objects.annotate(
+    #         type=Value('case'),
+    #         name=F('case__name'),
+    #         suite_id=F('execution_id'),
+    #         suite_name=F('execution__suite__name'),
+    #         case_id=F('case_id'),
+    #         case_name=F('case__name'),
+    #         executed_by_username=F('execution__executed_by__username'),
+    #         started_at=F('created_at')
+    #     ).values(
+    #         'id', 'type', 'name', 'status', 'started_at',
+    #         'duration', 'executed_by_username',
+    #         'suite_id', 'suite_name', 'case_id', 'case_name'
+    #     )
+    #
+    #     # 合并并排序
+    #     combined = list(suite_executions) + list(case_executions)
+    #     combined.sort(key=lambda x: x['started_at'], reverse=True)
+    #
+    #     # 分页处理
+    #     page = self.paginate_queryset(combined)
+    #     serializer = self.get_serializer(page, many=True)
+    #     return self.get_paginated_response(serializer.data)
+    def list(self, request, *args, **kwargs):
+        # 获取查询参数
+        exec_type = request.query_params.get('type')
+        status = request.query_params.get('status')
+        start_date = request.query_params.get('start_date')
+        end_date = request.query_params.get('end_date')
+
+        # 准备套件执行查询集
+        suite_qs = TestExecution.objects.select_related('suite', 'executed_by')
+
+        # 准备用例执行查询集
+        case_qs = CaseExecution.objects.select_related(
+            'case', 'execution', 'execution__suite', 'execution__executed_by'
+        )
+
+        # 应用类型过滤
+        if exec_type == 'suite':
+            case_qs = case_qs.none()
+        elif exec_type == 'case':
+            suite_qs = suite_qs.none()
+
+        # 应用状态过滤
+        if status:
+            suite_qs = suite_qs.filter(status=status)
+            case_qs = case_qs.filter(status=status)
+
+        # 应用日期范围过滤
+        if start_date and end_date:
+            try:
+                start = timezone.datetime.strptime(start_date, '%Y-%m-%d').date()
+                end = timezone.datetime.strptime(end_date, '%Y-%m-%d').date()
+
+                suite_qs = suite_qs.filter(started_at__date__range=[start, end])
+                case_qs = case_qs.filter(created_at__date__range=[start, end])
+            except ValueError:
+                pass
+
+        # 获取套件执行记录 - 使用 "suite_" 前缀
+        suite_executions = suite_qs.annotate(
+            record_type=Value('suite', output_field=CharField()),
+            record_name=F('suite__name'),
+            executed_by_username=F('executed_by__username'),
+            suite_total_cases=Count('cases', distinct=True),
+            suite_passed_cases=Count('cases', filter=Q(cases__status='passed'), distinct=True),
+
+            # 使用唯一前缀避免冲突
+            suite_execution_id=F('id'),
+            suite_suite_id=F('suite_id')
+        ).values(
+            'record_type', 'record_name', 'status', 'started_at',
+            'duration', 'executed_by_username',
+            'suite_total_cases', 'suite_passed_cases',
+            'suite_execution_id', 'suite_suite_id'
+        )
+
+        # 获取用例执行记录 - 使用 "case_" 前缀
+        case_executions = case_qs.annotate(
+            record_type=Value('case', output_field=CharField()),
+            record_name=F('case__name'),
+            executed_by_username=F('execution__executed_by__username'),
+            started_at=F('created_at'),
+
+            # 使用唯一前缀避免冲突
+            case_execution_id=F('id'),
+            case_suite_id=F('execution_id'),
+            case_suite_name=F('execution__suite__name'),
+            case_case_id=F('case_id'),
+            case_case_name=F('case__name')
+        ).values(
+            'record_type', 'record_name', 'status', 'started_at',
+            'duration', 'executed_by_username',
+            'case_execution_id', 'case_suite_id',
+            'case_suite_name', 'case_case_id', 'case_case_name'
+        )
+
+        # 合并并排序
+        combined = list(suite_executions) + list(case_executions)
+        combined.sort(key=lambda x: x['started_at'], reverse=True)
+
+        # 分页处理
+        page = self.paginate_queryset(combined)
+
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+        serializer = self.get_serializer(combined, many=True)
+        return APIResponse(serializer.data)
+
+
+
