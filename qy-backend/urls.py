@@ -23,7 +23,7 @@ from django.urls import path, include
 from rest_framework_simplejwt.views import TokenRefreshView
 from users.views import UserViewSet, UserRegistrationViewSet, CustomTokenObtainPairView, UserSuggestionViewSet
 from jk_case import views
-from projects.views import ProjectsView, GlobalVariableView, ProjectsEnvsView
+from projects.views import ProjectsView, GlobalVariableView, ProjectsEnvsView, HomeStatisticViewSet
 # from result.views import ResultView
 from rest_framework.documentation import include_docs_urls
 from rest_framework.routers import DefaultRouter
@@ -46,6 +46,8 @@ router.register(r'execution-history', views.ExecutionHistoryViewSet, basename='e
 router.register(r'interfaces', views.InterFaceViewSet, basename='interfacecase')
 router.register(r'testcases', views.TestCaseViewSet, basename='testcase')
 router.register('modules', views.ModuleViewSet, basename='module')
+
+router.register('home', HomeStatisticViewSet, basename='home')
 
 schema_view = get_schema_view(
     openapi.Info(
