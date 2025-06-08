@@ -12,10 +12,12 @@ from projects.models import GlobalVariable
 import logging
 import time
 
-log = logging.getLogger('app')
+log = logging.getLogger('django')
+
 
 def execute_case(case_obj, execute_env, executed_by):
     """异步执行单个测试用例任务"""
+    log.info('🚀 开始执行测试用例')
     # 初始化变量池
     vp = VariablePool()
     case_execution = CaseExecution.objects.create(
@@ -43,6 +45,7 @@ def execute_case(case_obj, execute_env, executed_by):
             # 'headers': interface.headers or {},
             'headers': case.headers or {},
             'body': case.body,
+            'params': case.params
         }
 
         # 执行请求
@@ -50,8 +53,9 @@ def execute_case(case_obj, execute_env, executed_by):
         executor = RequestExecutor(vp)
 
         try:
+            log.info('🚀 before 执行测试用例')
             response, actual_reqeust_data = executor.execute(case_data)
-
+            log.info('🚀 after 执行测试用例')
             # 记录请求数据（变量替换后）
             case_execution.request_data = actual_reqeust_data
 
@@ -98,6 +102,7 @@ def execute_case(case_obj, execute_env, executed_by):
                         'actual': str(e)
                     })
                     all_passed = False
+                    break
 
             case_execution.assertions_result = assertion_result
             case_execution.status = 'passed' if all_passed else 'failed'

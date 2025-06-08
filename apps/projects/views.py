@@ -13,6 +13,7 @@ import logging
 from django.utils import timezone
 from datetime import timedelta
 from django.db.models import Count, Q
+from django.db.models.functions import TruncDate
 
 
 
@@ -137,7 +138,7 @@ class HomeStatisticViewSet(viewsets.ModelViewSet):
             "projects": Projects.objects.count(),
             "modules": Module.objects.count(),
             "interfaces": InterFace.objects.count(),
-            "testcases": TestCase.objects.filter(enabled=True).count(),
+            "testcases": TestCase.objects.count(),
             "testsuites": TestSuite.objects.count(),
             "executions": TestExecution.objects.count(),
         }
@@ -228,4 +229,69 @@ class HomeStatisticViewSet(viewsets.ModelViewSet):
             "suite_status": list(suite_status),
             "case_status": list(case_status),
             "case_enabled": list(case_enabled)
+        })
+
+    @action(detail=False, methods=['get'])
+    def execution_trend(self, request):
+        """获取近7天执行趋势数据"""
+        # 计算日期范围
+        end_date = timezone.now().date()
+        start_date = end_date - timedelta(days=6)  # 包括今天共7天
+
+        # 获取套件执行趋势
+        suite_trend = (
+            TestExecution.objects
+            .filter(started_at__date__range=[start_date, end_date])
+            .annotate(date=TruncDate('started_at'))
+            .values('date')
+            .annotate(
+                total=Count('id'),
+                passed=Count('id', filter=Q(status='passed')),
+                failed=Count('id', filter=Q(status='failed'))
+            )
+            .order_by('date')
+        )
+
+        # 获取用例执行趋势
+        case_trend = (
+            CaseExecution.objects
+            .filter(created_at__date__range=[start_date, end_date])
+            .annotate(date=TruncDate('created_at'))
+            .values('date')
+            .annotate(
+                total=Count('id'),
+                passed=Count('id', filter=Q(status='passed')),
+                failed=Count('id', filter=Q(status='failed'))
+            )
+            .order_by('date')
+        )
+
+        # 填充缺失的日期（确保7天都有数据）
+        dates = [start_date + timedelta(days=i) for i in range(7)]
+
+        # 格式化套件执行趋势
+        suite_data = []
+        for date in dates:
+            entry = next((item for item in suite_trend if item['date'] == date), None)
+            suite_data.append({
+                "date": date,
+                "total": entry["total"] if entry else 0,
+                "passed": entry["passed"] if entry else 0,
+                "failed": entry["failed"] if entry else 0
+            })
+
+        # 格式化用例执行趋势
+        case_data = []
+        for date in dates:
+            entry = next((item for item in case_trend if item['date'] == date), None)
+            case_data.append({
+                "date": date,
+                "total": entry["total"] if entry else 0,
+                "passed": entry["passed"] if entry else 0,
+                "failed": entry["failed"] if entry else 0
+            })
+
+        return APIResponse({
+            "suite_executions": suite_data,
+            "case_executions": case_data
         })

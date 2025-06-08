@@ -3,7 +3,7 @@ import requests
 from common.handle_test.variable_pool import VariablePool
 import logging
 
-log = logging.getLogger('app')
+log = logging.getLogger('django')
 
 
 class RequestExecutor:
@@ -28,8 +28,6 @@ class RequestExecutor:
                 for k, v in case_data['params'].items()
             }
         else:
-            log.error(type(case_data['body']))
-            log.error(case_data['body'])
             processed_data['data'] = {
                 k: self.variable_pool.parse_placeholder(v)
                 for k, v in case_data['body'].items()
@@ -47,11 +45,13 @@ class RequestExecutor:
             #         k: self.variable_pool.parse_placeholder(v)
             #         for k, v in case_data['body'].get('data', []).items()
             #     }
-
+        log.info(f'get params222 => {case_data}')
+        print(f'get params222 => {case_data}')
         return processed_data
 
     def execute(self, case_data: dict):
         prepared = self.prepare_request(case_data)
+        log.info(f'Executing request with data: {prepared}', )
         return self.session.request(**prepared), prepared
 
 

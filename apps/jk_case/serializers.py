@@ -211,19 +211,43 @@ class CaseExecutionSerializer(serializers.ModelSerializer):
 
 class TestExecutionSerializer(serializers.ModelSerializer):
     cases = CaseExecutionSerializer(
-        source='caseexecution_set',
+        'cases',
         many=True,
         read_only=True
     )
     executed_by = serializers.StringRelatedField()
+    suite = serializers.CharField(source='suite.name', read_only=True)
+    started_at =serializers.DateTimeField(format='%Y-%m-%d %H:%M:%S', read_only=True)
+    ended_at = serializers.DateTimeField(format='%Y-%m-%d %H:%M:%S', read_only=True)
+
+    # 计算字段
+    pass_rate = serializers.SerializerMethodField()
+    total_cases = serializers.SerializerMethodField()
+    passed_cases = serializers.SerializerMethodField()
 
     class Meta:
         model = TestExecution
         fields = [
             'id', 'suite', 'status', 'started_at',
-            'ended_at', 'duration', 'executed_by', 'cases'
+            'ended_at', 'duration', 'executed_by',
+            'cases', 'pass_rate', 'total_cases', 'passed_cases'
         ]
 
+    def get_pass_rate(self, obj):
+        """计算通过率"""
+        total = obj.cases.count()
+        if total == 0:
+            return 0
+        passed = obj.cases.filter(status='passed').count()
+        return round(passed / total * 100, 2)
+
+    def get_total_cases(self, obj):
+        """获取用例总数"""
+        return obj.cases.count()
+
+    def get_passed_cases(self, obj):
+        """获取通过用例数"""
+        return obj.cases.filter(status='passed').count()
 
 class ExecutionHistorySerializer(serializers.Serializer):
     # 通用字段

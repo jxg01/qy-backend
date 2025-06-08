@@ -54,7 +54,7 @@ class UserSuggestionViewSet(viewsets.GenericViewSet,
                             mixins.CreateModelMixin,
                             mixins.DestroyModelMixin,
                             mixins.ListModelMixin):
-    queryset = UserSuggestion.objects.all()
+    queryset = UserSuggestion.objects.all().order_by('-id')
     serializer_class = UserSuggestionSerialize
 
     def perform_create(self, serializer):
