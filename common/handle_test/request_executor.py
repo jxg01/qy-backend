@@ -28,25 +28,15 @@ class RequestExecutor:
                 for k, v in case_data['params'].items()
             }
         else:
-            processed_data['data'] = {
-                k: self.variable_pool.parse_placeholder(v)
-                for k, v in case_data['body'].items()
-            }
-            # # 处理不同参数类型
-            # 备注： 暂时没有加类型判断，统一使用 data
-            # if case_data['body'].get('type') == 'json':
-            #     processed_data['json'] = json.loads(
-            #         self.variable_pool.parse_placeholder(
-            #             json.dumps(case_data['body'].get('data', []))
-            #         )
-            #     )
-            # elif case_data['body'].get('type') == 'formdata':
-            #     processed_data['data'] = {
-            #         k: self.variable_pool.parse_placeholder(v)
-            #         for k, v in case_data['body'].get('data', []).items()
-            #     }
-        log.info(f'get params222 => {case_data}')
-        print(f'get params222 => {case_data}')
+            if case_data['body_type'] == 'form':
+                processed_data['data'] = {
+                    k: self.variable_pool.parse_placeholder(v)
+                    for k, v in case_data['data'].items()
+                }
+            else:
+                processed_data['json'] = json.loads(
+                    self.variable_pool.parse_placeholder(case_data['body'])
+                )
         return processed_data
 
     def execute(self, case_data: dict):

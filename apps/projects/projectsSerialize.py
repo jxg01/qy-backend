@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from projects.models import Projects, GlobalVariable, ProjectEnvs
+from projects.models import Projects, GlobalVariable, ProjectEnvs, PythonCode
 from common.error_codes import ErrorCode
 from common.exceptions import BusinessException
 import django_filters
@@ -139,6 +139,36 @@ class GlobalVariableSerialize(serializers.ModelSerializer):
             raise BusinessException(ErrorCode.VARIABLE_NAME_EXISTS)
         return value
 
+
+class PythonCodeSerialize(serializers.ModelSerializer):
+    updated_at = serializers.DateTimeField(format='%Y-%m-%d %H:%M:%S', read_only=True)
+    created_at = serializers.DateTimeField(format='%Y-%m-%d %H:%M:%S', read_only=True)
+    created_by = serializers.CharField(
+        source='created_by.username',
+        read_only=True,
+        help_text="创建人"
+    )
+    updated_by = serializers.CharField(
+        source='updated_by.username',
+        read_only=True,
+        help_text="更新人"
+    )
+
+    class Meta:
+        model = PythonCode
+        fields = '__all__'
+        # 增强字段验证规则
+        extra_kwargs = {
+            'name': {
+                'min_length': 2,
+                'max_length': 16,
+                'error_messages': {
+                    'min_length': '变量名称至少2个字符',
+                    'max_length': '��量名称不能超过16个字符',
+                    'blank': '项目名称不能为空',
+                }
+            }
+        }
 
 
 

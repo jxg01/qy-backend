@@ -45,7 +45,9 @@ def execute_case(case_obj, execute_env, executed_by):
             # 'headers': interface.headers or {},
             'headers': case.headers or {},
             'body': case.body,
-            'params': case.params
+            'params': case.params,
+            'data': case.data,
+            'body_type': case.body_type
         }
 
         # 执行请求

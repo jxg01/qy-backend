@@ -82,3 +82,27 @@ class ProjectEnvs(models.Model):
         db_table = 'qy_project_envs'
         verbose_name_plural = verbose_name = '项目环境信息'
 
+
+class PythonCode(models.Model):
+    name = models.CharField(max_length=60, verbose_name='代码名称', help_text='代码名称')
+    python_code = models.TextField(null=True, verbose_name='代码内容', help_text='代码内容')
+    description = models.CharField(max_length=240, verbose_name='代码描述', help_text='代码描述')
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
+    created_by = models.ForeignKey(
+        UserProfile,
+        on_delete=models.CASCADE,
+        verbose_name="创建人",
+        related_name='created_python_code'
+    )
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="更新时间")
+    updated_by = models.ForeignKey(
+        UserProfile,
+        on_delete=models.CASCADE,
+        verbose_name="编辑人",
+        related_name='updated_python_code'
+    )
+
+    class Meta:
+        db_table = 'qy_python_code'
+        verbose_name_plural = verbose_name = 'Python代码'
+

@@ -11,6 +11,7 @@ from datetime import datetime
 from common.error_codes import ErrorCode
 from common.handle_test.tasks import async_execute_suite
 from common.handle_test.runcase import execute_case
+from common.handle_test.run_interface import execute_interface
 from common.exceptions import BusinessException
 import logging
 
@@ -123,6 +124,27 @@ class InterFaceViewSet(viewsets.ModelViewSet):
 
         serializer = InterFaceIdNameSerializer(queryset, many=True)
         return APIResponse(data=serializer.data)
+
+    @action(detail=False, methods=['post'], url_path='run')
+    def execute(self, request, pk=None):
+        """
+        {
+            "method": "GET",
+            "url": "HTTP://www.baidu.com",
+            "headers": {"content-type": "123"},
+            "params": {"content-type": "456"},
+            "body_type": "raw",
+            "data": {"content-type": "789"},
+            "body": {"content-type": "666"}
+        }
+        """
+        payload = request.data
+        print('payload', payload)
+
+        data = execute_interface(payload)
+
+        return APIResponse(data=data)
+
 
 
 class TestCaseViewSet(viewsets.ModelViewSet):

@@ -129,13 +129,23 @@ class TestCase(TimeStampedModel):
     )
     params = models.JSONField(  # 改为JSON字段
         default=dict,
+        verbose_name='查询参数'
+    )
+
+    body_type = models.CharField(max_length=10, default='form',
+                                 verbose_name='请求体类型: form | raw',
+                                 help_text='请求体类型: form | raw')
+
+    data = models.JSONField(  # 改为JSON字段
+        default=dict,
         verbose_name='请求参数'
     )
-    # body => {'data': {'page': '${page}', 'per_page': '${per_page}'}, 'type': 'formdata'}
-    # type => formdata | json
-    body = models.JSONField(  # 改为JSON字段
-        default=dict,
-        verbose_name='请求体'
+
+    body = models.CharField(
+        max_length=1024,
+        null=True,
+        verbose_name='请求体：json字符串',
+        help_text='请求体：json字符串'
     )
     # # [{'type': 'status_code', 'expected': 200}, {'type': 'jsonpath', 'path': '$.status', 'expected': 200}]
     assertions = models.JSONField(  # 结构化存储

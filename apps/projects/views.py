@@ -1,12 +1,12 @@
 from common.utils import APIResponse
-from projects.models import Projects, GlobalVariable, ProjectEnvs
+from projects.models import Projects, GlobalVariable, ProjectEnvs, PythonCode
 from jk_case.models import (
     Projects, Module, InterFace,
     TestCase, TestSuite, TestExecution,
     CaseExecution
 )
 from projects.projectsSerialize import (ProjectsSerialize, ProjectsFilter, GlobalVariableSerialize,
-                                        GlobalVariableFilter, ProjectEnvsSerialize)
+                                        GlobalVariableFilter, ProjectEnvsSerialize, PythonCodeSerialize)
 from rest_framework import viewsets, permissions
 from rest_framework.decorators import action
 import logging
@@ -295,3 +295,22 @@ class HomeStatisticViewSet(viewsets.ModelViewSet):
             "suite_executions": suite_data,
             "case_executions": case_data
         })
+
+
+class PythonCodeView(viewsets.ModelViewSet):
+    queryset = PythonCode.objects.all().order_by('-id')
+    serializer_class = PythonCodeSerialize
+    permission_classes = [permissions.IsAuthenticated]
+
+    def perform_create(self, serializer):
+        """自动设置创建人"""
+        serializer.save(created_by=self.request.user, updated_by=self.request.user)
+
+    def perform_update(self, serializer):
+        # 记录修改日志
+        instance = serializer.save(updated_by=self.request.user)
+        old_name = self.get_object().name
+        print(f"用户 {self.request.user} 将代码 {old_name} 修改为 {instance.name}")
+        logger.info(
+            f"用户 {self.request.user} 将代码 {old_name} 修改为 {instance.name}"
+        )
