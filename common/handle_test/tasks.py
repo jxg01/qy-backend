@@ -10,7 +10,7 @@ import django
 django.setup()
 
 from jk_case.models import TestExecution, SuiteCaseRelation, CaseExecution
-from projects.models import GlobalVariable
+from projects.models import GlobalVariable, PythonCode
 import time
 # 异步任务中显式接收 User object
 from django.contrib.auth import get_user_model
@@ -31,6 +31,12 @@ def async_execute_suite(self, execution_id, executed_by, env_url):
     # 更新全局变量到内存
     global_vars = GlobalVariable.objects.values_list('name', 'value')
     vp.update_global({name: value for name, value in global_vars})
+
+    # 更新Python代码
+    python_codes = PythonCode.objects.all()
+    if python_codes:
+        vp.set_function_code(python_codes[0].python_code)
+
 
     execution = TestExecution.objects.get(id=execution_id)
     try:

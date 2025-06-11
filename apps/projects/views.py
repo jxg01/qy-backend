@@ -14,6 +14,7 @@ from django.utils import timezone
 from datetime import timedelta
 from django.db.models import Count, Q
 from django.db.models.functions import TruncDate
+import re
 
 
 
@@ -314,3 +315,11 @@ class PythonCodeView(viewsets.ModelViewSet):
         logger.info(
             f"用户 {self.request.user} 将代码 {old_name} 修改为 {instance.name}"
         )
+
+    @action(detail=False, methods=['get'], url_path='function-list')
+    def get_function_list(self, request):
+        """获取所有Python代码中的函数列表"""
+        code_str = PythonCode.objects.all().first().python_code
+        pattern = r'def\s+(\w+)\s*\('
+        python_function_name_list = re.findall(pattern, code_str)
+        return APIResponse(data=python_function_name_list)

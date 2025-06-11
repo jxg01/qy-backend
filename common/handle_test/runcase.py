@@ -8,7 +8,7 @@ import django
 django.setup()
 
 from jk_case.models import CaseExecution
-from projects.models import GlobalVariable
+from projects.models import GlobalVariable, PythonCode
 import logging
 import time
 
@@ -29,6 +29,11 @@ def execute_case(case_obj, execute_env, executed_by):
         # 更新全局变量
         global_vars = GlobalVariable.objects.values_list('name', 'value')
         vp.update_global({name: value for name, value in global_vars})
+
+        # 更新Python代码
+        python_codes = PythonCode.objects.all()
+        if python_codes:
+            vp.set_function_code(python_codes[0].python_code)
 
         # 更新执行状态
         case_execution.status = 'running'

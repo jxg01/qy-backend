@@ -6,7 +6,7 @@ django.setup()
 from common.handle_test.variable_pool import VariablePool
 from common.handle_test.request_executor import RequestExecutor
 import logging
-from projects.models import GlobalVariable
+from projects.models import GlobalVariable, PythonCode
 
 log = logging.getLogger('django')
 
@@ -32,6 +32,11 @@ def execute_interface(payload):
         global_vars = GlobalVariable.objects.values_list('name', 'value')
         vp.update_global({name: value for name, value in global_vars})
 
+        # 更新Python代码
+        python_codes = PythonCode.objects.all()
+        if python_codes:
+            vp.set_function_code(python_codes[0].python_code)
+
         executor = RequestExecutor(vp)
 
         response, actual_reqeust_data = executor.execute(payload)
@@ -48,7 +53,8 @@ def execute_interface(payload):
         }
     except Exception as e:
         log.error(f"执行测试用例失败: {e}")
-        request_result['response_data'] = {'error': str(e)}
+        request_result['request_data'] = payload
+        request_result['response_data'] = {'body': str(e)}
     finally:
         log.info('🚀 测试用例执行完成')
         return request_result
