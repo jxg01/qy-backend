@@ -73,9 +73,11 @@ def async_execute_suite(self, execution_id, executed_by, env_url):
                 case_data = {
                     'method': case.interface.method,
                     'url': env_url + case.interface.path,
-                    'headers': case.headers,
+                    'headers': case.headers or {},
                     'body': case.body,
-                    'params': case.params
+                    'params': case.params,
+                    'data': case.data,
+                    'body_type': case.body_type
                 }
 
                 executor = RequestExecutor(vp)
