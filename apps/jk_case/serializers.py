@@ -80,6 +80,16 @@ class TestCaseSerializer(BaseModelSerializer):
         read_only=True,
         help_text="接口名称"
     )
+    interface_method = serializers.CharField(
+        source='interface.method',
+        read_only=True,
+        help_text="接口请求方式"
+    )
+    interface_path = serializers.CharField(
+        source='interface.path',
+        read_only=True,
+        help_text="接口路径"
+    )
 
     class Meta:
         model = TestCase

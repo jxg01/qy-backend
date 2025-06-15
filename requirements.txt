@@ -25,3 +25,5 @@ typing_extensions==4.12.2
 urllib3==2.3.0
 celery==5.5.2
 drf-yasg==1.21.10
+django_celery_results==2.6.0
+redis==4.0.0

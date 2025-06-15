@@ -27,7 +27,7 @@ from projects.views import ProjectsView, GlobalVariableView, ProjectsEnvsView, H
 # from result.views import ResultView
 from rest_framework.documentation import include_docs_urls
 from rest_framework.routers import DefaultRouter
-from mt_tool.views import Tools
+from mt_tool import views as mt_views
 
 router = DefaultRouter()
 router.register('users', UserViewSet)
@@ -76,8 +76,15 @@ urlpatterns = [
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('api/', include(router.urls)),
 
+    # 任务管理
+    path('api/tasks/', mt_views.TaskAPIView.as_view(), name='task-manage'),
+    path('api/tasks/<str:task_id>/', mt_views.TaskStatusView.as_view(), name='task-status'),
 
-    path('tools', Tools.as_view()),
+    # 任务历史
+    path('api/users/<int:user_id>/tasks/', mt_views.UserTaskHistoryView.as_view(), name='user-task-history'),
+
+
+    # path('tools', Tools.as_view()),
 
     # path('api/users/', UserViewSet.as_view({'get': 'list'}), name='select_all_user'),
     # path('api/addUser/', UserViewSet.as_view({'post': 'create'}), name='add_user'),

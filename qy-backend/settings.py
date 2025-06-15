@@ -48,8 +48,10 @@ INSTALLED_APPS = [
     'users.apps.UsersConfig',
     'jk_case.apps.JkCaseConfig',
     'projects.apps.ProjectsConfig',
+    'mt_tool.apps.MtToolConfig',
     'corsheaders',
     'drf_yasg',
+    'django_celery_results',
 ]
 
 CORS_ORIGIN_ALLOW_ALL = True
@@ -190,6 +192,11 @@ CORS_ALLOW_HEADERS = (
 # redis配置
 CELERY_BROKER_URL = 'redis://127.0.0.1:6379/0'
 CELERY_RESULT_BACKEND = 'redis://127.0.0.1:6379/0'
+# CELERY_RESULT_BACKEND = 'jango-db'
+CELERY_ACCEPT_CONTENT = ['json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_SERIALIZER = 'json'
+CELERY_TIMEZONE = 'Asia/Shanghai'
 
 LOGGING = {
     'version': 1,
