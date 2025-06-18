@@ -219,15 +219,41 @@ class CaseExecutionSerializer(serializers.ModelSerializer):
         ]
 
 
+class CaseExecutionDetailSerializer(serializers.ModelSerializer):
+    # 增加测试用例详细信息
+    case_id = serializers.IntegerField(source='case.id', read_only=True)
+    case_name = serializers.CharField(source='case.name', read_only=True)
+    case_description = serializers.CharField(source='case.description', read_only=True, allow_null=True)
+    interface_id = serializers.IntegerField(source='case.interface.id', read_only=True)
+    interface_name = serializers.CharField(source='case.interface.name', read_only=True)
+    interface_path = serializers.CharField(source='case.interface.path', read_only=True)
+    interface_method = serializers.CharField(source='case.interface.method', read_only=True)
+
+    executed_by = serializers.CharField(source='executed_by.username')
+    created_at = serializers.DateTimeField(format='%Y-%m-%d %H:%M:%S')
+
+    class Meta:
+        model = CaseExecution
+        fields = [
+            'id',
+            'case_id', 'case_name', 'case_description',  # 测试用例基本信息
+            'interface_id', 'interface_name', 'interface_path', 'interface_method',  # 接口信息
+            'status',  # 执行状态
+            'request_data', 'response_data',  # 请求和响应数据
+            'assertions_result', 'extracted_vars',  # 断言和变量提取结果
+            'duration', 'created_at', 'executed_by'  # 执行信息
+        ]
+
+
 class TestExecutionSerializer(serializers.ModelSerializer):
-    cases = CaseExecutionSerializer(
+    cases = CaseExecutionDetailSerializer(
         'cases',
         many=True,
         read_only=True
     )
     executed_by = serializers.StringRelatedField()
     suite = serializers.CharField(source='suite.name', read_only=True)
-    started_at =serializers.DateTimeField(format='%Y-%m-%d %H:%M:%S', read_only=True)
+    started_at = serializers.DateTimeField(format='%Y-%m-%d %H:%M:%S', read_only=True)
     ended_at = serializers.DateTimeField(format='%Y-%m-%d %H:%M:%S', read_only=True)
 
     # 计算字段

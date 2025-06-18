@@ -28,6 +28,10 @@ class ErrorCode(Enum):
     # 用例
     TESTCASE_DISABLED = (4001, "用例已经被禁用")
 
+    # 套件
+    SUITE_RELATED_CASE_NOT_EXISTS = (5001, "套件下没有关联用例")
+    SUITE_RELATED_CASE_ALL_DISABLED = (5002, "套件下所有用例都已被禁用")
+
     # 后续新增错误码只需在此添加
 
     def __init__(self, code: int, message: str):

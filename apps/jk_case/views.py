@@ -388,6 +388,15 @@ class TestSuiteViewSet(viewsets.ModelViewSet):
         """
         suite = self.get_object()
         env_url = request.data.get('env_url')
+        # if not suite.enabled:
+        #     raise BusinessException(ErrorCode.TESTSUITE_DISABLED)
+        # if not env_url:
+        #     raise BusinessException(ErrorCode.TESTSUITE_DISABLED)
+        if suite.cases.count() == 0:
+            raise BusinessException(ErrorCode.SUITE_RELATED_CASE_NOT_EXISTS)
+        if suite.cases.filter(enabled=False).count() == suite.cases.count():
+            raise BusinessException(ErrorCode.SUITE_RELATED_CASE_ALL_DISABLED)
+
         # 创建新的执行记录
         execution = TestExecution.objects.create(
             suite=suite,
@@ -454,7 +463,8 @@ class ExecutionHistoryViewSet(viewsets.ModelViewSet):
         # 准备用例执行查询集
         case_qs = CaseExecution.objects.select_related(
             'case', 'execution', 'execution__suite', 'execution__executed_by'
-        )
+        ).filter(execution__isnull=True)
+        print('case_qs', case_qs.query)
 
         # 应用类型过滤
         if exec_type == 'suite':
