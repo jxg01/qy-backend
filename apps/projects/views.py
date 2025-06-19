@@ -260,9 +260,9 @@ class HomeStatisticViewSet(viewsets.ModelViewSet):
             .annotate(date=TruncDate('created_at'))
             .values('date')
             .annotate(
-                total=Count('id'),
-                passed=Count('id', filter=Q(status='passed')),
-                failed=Count('id', filter=Q(status='failed'))
+                total=Count('id', filter=Q(execution__isnull=True)),
+                passed=Count('id', filter=Q(status='passed', execution__isnull=True)),
+                failed=Count('id', filter=Q(status='failed', execution__isnull=True))
             )
             .order_by('date')
         )
