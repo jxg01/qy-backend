@@ -8,12 +8,6 @@ def status_code(response, expected):
     assert response.status_code == int(expected['expected']), f"Expected {expected['expected']}, but got {response.status_code}"
 
 
-def jsonpath_exist(response, expected):
-    """断言JSONPath存在"""
-    json_data = response.json()
-    assert jsonpath.jsonpath(json_data, expected), f"Expected {expected}, but got {json_data}"
-
-
 def jsonpath_equal(response, expected):
     """断言响应体"""
     actual_value = jsonpath.jsonpath(response.json(), expected['path'])
@@ -24,16 +18,32 @@ def jsonpath_equal(response, expected):
         assert False, f"JSONPath {expected['path']} not found in response"
 
 
+def jsonpath_not_equal(response, expected):
+    """断言JSONPath不等于"""
+    actual_value = jsonpath.jsonpath(response.json(), expected['path'])
+    if actual_value:
+        actual_value = actual_value[0]
+        assert actual_value != expected['expected'], f"Expected not {expected['expected']}, but got {actual_value}"
+    else:
+        assert False, f"JSONPath {expected['path']} not found in response"
+
+
 def value_in_response(response,  expected):
     """断言响应体"""
-    assert expected in response.text, f"Expected {expected} not in Response!"
+    assert expected['expected'] in response.text, f"Expected <{expected['expected']}> not in Response!"
+
+
+def value_not_in_response(response, expected):
+    """断言响应体"""
+    assert expected['expected'] not in response.text, f"Expected <{expected['expected']}> in Response!"
 
 
 ASSERTION_MAPPING = {
     'status_code': status_code,
-    'jsonpath_exist': jsonpath_exist,
     'jsonpath_equal': jsonpath_equal,
-    'value_in_response': value_in_response
+    'jsonpath_not_equal': jsonpath_not_equal,
+    'value_in_response': value_in_response,
+    'value_not_in_response': value_not_in_response,
 }
 
 

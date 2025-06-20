@@ -91,7 +91,7 @@ def async_execute_suite(self, execution_id, executed_by, env_url):
                     case.variable_extract,
                     response
                 )
-                vp.extracted_vars.update(extracted)
+                vp.suite_vars.update(extracted)
                 case_execution.extracted_vars = extracted
 
                 # 记录执行时间

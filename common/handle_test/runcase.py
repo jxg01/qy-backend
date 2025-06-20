@@ -71,7 +71,7 @@ def execute_case(case_obj, execute_env, executed_by):
                 case.variable_extract,
                 response
             )
-            vp.extracted_vars.update(extracted)
+            vp.suite_vars.update(extracted)
             case_execution.extracted_vars = extracted
             # 记录执行时间
             duration = round(time.time() - start_time, 3)

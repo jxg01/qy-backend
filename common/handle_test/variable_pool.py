@@ -9,7 +9,7 @@ class VariablePool:
     def __init__(self):
         self.global_vars = {}
         self.suite_vars = {}
-        self.extracted_vars = {}
+        self.case_vars = {}
         self.function_code = ""  # 存储函数代码字符串
 
     def set_function_code(self, code_str: str):
@@ -23,7 +23,11 @@ class VariablePool:
         self.suite_vars.update(data)
 
     def update_extracted(self, data: dict):
-        self.extracted_vars.update(data)
+        self.suite_vars.update(data)
+
+    def update_case_params(self, data: dict):
+        """更新用例参数变量"""
+        self.case_vars.update(data)
 
     def get_value(self, key: str):
         # 支持作用域前缀解析
@@ -34,9 +38,9 @@ class VariablePool:
             elif scope == 'global':
                 return self.global_vars.get(name)
             elif scope == 'case':
-                return self.extracted_vars.get(name)
+                return self.case_vars.get(name)
         # 默认优先级逻辑，如果没有传入作用域前缀，则按顺序查找 ｜ ${username}
-        return self.extracted_vars.get(key) or self.suite_vars.get(key) or self.global_vars.get(key)
+        return self.case_vars.get(key) or self.suite_vars.get(key) or self.global_vars.get(key)
 
     def parse_arguments(self, arg_str: str):
         """解析参数字符串为Python对象列表"""
