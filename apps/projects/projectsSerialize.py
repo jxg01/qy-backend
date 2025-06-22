@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from projects.models import Projects, GlobalVariable, ProjectEnvs, PythonCode
+from projects.models import Projects, GlobalVariable, ProjectEnvs, PythonCode, DBConfig
 from common.error_codes import ErrorCode
 from common.exceptions import BusinessException
 import django_filters
@@ -24,7 +24,30 @@ class GlobalVariableFilter(django_filters.FilterSet):
         fields = ['name']
 
 
+class DBConfigSerialize(serializers.ModelSerializer):
+    updated_at = serializers.DateTimeField(format='%Y-%m-%d %H:%M:%S', read_only=True)
+    created_at = serializers.DateTimeField(format='%Y-%m-%d %H:%M:%S', read_only=True)
+    created_by = serializers.CharField(
+        source='created_by.username',
+        read_only=True,
+        help_text="创建人"
+    )
+    updated_by = serializers.CharField(
+        source='updated_by.username',
+        read_only=True,
+        help_text="更新人"
+    )
+
+    class Meta:
+        model = DBConfig
+        fields = '__all__'
+
+
 class ProjectEnvsSerialize(serializers.ModelSerializer):
+    db_config = serializers.SerializerMethodField()
+    db_info = DBConfigSerialize(read_only=True, source='db_config')
+
+
     updated_at = serializers.DateTimeField(format='%Y-%m-%d %H:%M:%S', read_only=True)
     created_at = serializers.DateTimeField(format='%Y-%m-%d %H:%M:%S', read_only=True)
     created_by = serializers.CharField(
@@ -42,6 +65,14 @@ class ProjectEnvsSerialize(serializers.ModelSerializer):
         model = ProjectEnvs
         fields = '__all__'
         ordering = ['-id']
+
+    def get_db_config(self, obj):
+        """获取数据库配置"""
+        db_config = obj.id
+        db_exists = DBConfig.objects.filter(env=db_config).exists()
+        if db_exists:
+            return 1
+        return 0
 
 
 class ProjectsSerialize(serializers.ModelSerializer):
@@ -169,6 +200,5 @@ class PythonCodeSerialize(serializers.ModelSerializer):
                 }
             }
         }
-
 
 

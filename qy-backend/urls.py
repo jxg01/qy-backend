@@ -23,11 +23,11 @@ from django.urls import path, include
 from rest_framework_simplejwt.views import TokenRefreshView
 from users.views import UserViewSet, UserRegistrationViewSet, CustomTokenObtainPairView, UserSuggestionViewSet
 from jk_case import views
-from projects.views import ProjectsView, GlobalVariableView, ProjectsEnvsView, HomeStatisticViewSet, PythonCodeView
-# from result.views import ResultView
-from rest_framework.documentation import include_docs_urls
+from projects.views import (ProjectsView, GlobalVariableView, ProjectsEnvsView,
+                            HomeStatisticViewSet, PythonCodeView, DBConfigView)
 from rest_framework.routers import DefaultRouter
 from mt_tool import views as mt_views
+from ui_case.views import (UiElementViewSet, UiTestCaseViewSet, UiExecutionViewSet)
 
 router = DefaultRouter()
 router.register('users', UserViewSet)
@@ -36,6 +36,7 @@ router.register('projects', ProjectsView)
 router.register('register', UserRegistrationViewSet, basename='register')
 router.register('variable', GlobalVariableView)
 router.register('envs', ProjectsEnvsView)
+router.register('db-config', DBConfigView, basename='db-config')
 # about case
 router.register(r'suite', views.TestSuiteViewSet)
 router.register(r'SuiteExecutionResult', views.TestExecutionViewSet)
@@ -46,6 +47,10 @@ router.register(r'execution-history', views.ExecutionHistoryViewSet, basename='e
 router.register(r'interfaces', views.InterFaceViewSet, basename='interfacecase')
 router.register(r'testcases', views.TestCaseViewSet, basename='testcase')
 router.register('modules', views.ModuleViewSet, basename='module')
+# ui cases
+router.register('ui-elements', UiElementViewSet, basename='ui-element')
+router.register('ui-testcases', UiTestCaseViewSet, basename='ui-testcase')
+router.register('ui-executions', UiExecutionViewSet, basename='ui-execution')
 
 router.register('home', HomeStatisticViewSet, basename='home')
 

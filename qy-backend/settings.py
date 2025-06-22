@@ -49,9 +49,11 @@ INSTALLED_APPS = [
     'jk_case.apps.JkCaseConfig',
     'projects.apps.ProjectsConfig',
     'mt_tool.apps.MtToolConfig',
+    'ui_case.apps.UiCaseConfig',
     'corsheaders',
     'drf_yasg',
     'django_celery_results',
+    # 'playwright',
 ]
 
 CORS_ORIGIN_ALLOW_ALL = True

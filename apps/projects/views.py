@@ -1,12 +1,12 @@
 from common.utils import APIResponse
-from projects.models import Projects, GlobalVariable, ProjectEnvs, PythonCode
+from projects.models import Projects, GlobalVariable, ProjectEnvs, PythonCode, DBConfig
 from jk_case.models import (
     Projects, Module, InterFace,
     TestCase, TestSuite, TestExecution,
     CaseExecution
 )
 from projects.projectsSerialize import (ProjectsSerialize, ProjectsFilter, GlobalVariableSerialize,
-                                        GlobalVariableFilter, ProjectEnvsSerialize, PythonCodeSerialize)
+                                        GlobalVariableFilter, ProjectEnvsSerialize, PythonCodeSerialize, DBConfigSerialize)
 from rest_framework import viewsets, permissions
 from rest_framework.decorators import action
 import logging
@@ -323,3 +323,21 @@ class PythonCodeView(viewsets.ModelViewSet):
         pattern = r'def\s+(\w+)\s*\('
         python_function_name_list = re.findall(pattern, code_str)
         return APIResponse(data=python_function_name_list)
+
+
+class DBConfigView(viewsets.ModelViewSet):
+    queryset = DBConfig.objects.all().order_by('-id')
+    serializer_class = DBConfigSerialize
+    permission_classes = [permissions.IsAuthenticated]
+
+    def perform_create(self, serializer):
+        """自动设置创建人"""
+        serializer.save(created_by=self.request.user, updated_by=self.request.user)
+
+    def perform_update(self, serializer):
+        # 记录修改日志
+        instance = serializer.save(updated_by=self.request.user)
+        old_name = self.get_object().name
+        logger.info(
+            f"用户 {self.request.user} 将数据库配置 {old_name} 修改为 {instance.name}"
+        )
