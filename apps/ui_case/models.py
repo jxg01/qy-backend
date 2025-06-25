@@ -1,6 +1,6 @@
 from django.db import models
-from django.contrib.auth.models import User
 from projects.models import Projects
+from users.models import UserProfile
 
 
 class UiElement(models.Model):
@@ -9,16 +9,46 @@ class UiElement(models.Model):
     locator_type = models.CharField(max_length=20, choices=[("xpath", "XPath"), ("css", "CSS"), ("id", "ID")])
     locator_value = models.CharField(max_length=256)
     description = models.TextField(blank=True)
+    page = models.CharField(max_length=256)  # 所属页面路径
+    created_by = models.ForeignKey(UserProfile, on_delete=models.CASCADE, related_name='created_elements')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    updated_by = models.ForeignKey(UserProfile, on_delete=models.CASCADE, related_name='updated_elements', null=True, blank=True)
 
+    class Meta:
+        db_table = 'qy_ui_element'
+        verbose_name_plural = verbose_name = 'UI元素'
+        ordering = ['-created_at']
+
+
+# {
+#   id: number
+#   name: string
+#   selector: string
+#   byType: 'css' | 'xpath' | 'text' | 'id' | 'class' | 'test-id' // 定位方式
+#   description: string
+#   page: string  // 所属页面路径
+#   createdAt: string
+#   updatedAt: string
+# }
 
 class UiTestCase(models.Model):
     project = models.ForeignKey(Projects, on_delete=models.CASCADE)
     name = models.CharField(max_length=128)
     description = models.TextField(blank=True)
+    pre_apis = models.JSONField(default=list)  # 前置API步骤为结构化JSON
     steps = models.JSONField(default=list)  # 步骤为结构化JSON
-    browser = models.CharField(max_length=20, default='chrome')
+    post_steps = models.JSONField(default=list)  # 后置步骤为结构化JSON
     enable = models.BooleanField(default=True)
+    created_by = models.ForeignKey(UserProfile, on_delete=models.CASCADE, related_name='created_cases')
     created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    updated_by = models.ForeignKey(UserProfile, on_delete=models.CASCADE, related_name='updated_cases', null=True, blank=True)
+
+    class Meta:
+        db_table = 'qy_ui_test_case'
+        verbose_name_plural = verbose_name = 'UI测试用例'
+        ordering = ['-created_at']
 
 
 class UiExecution(models.Model):
@@ -28,4 +58,9 @@ class UiExecution(models.Model):
     screenshots = models.JSONField(default=list)
     duration = models.FloatField()
     executed_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'qy_ui_execution'
+        verbose_name_plural = verbose_name = 'UI测试执行'
+        ordering = ['-executed_at']
 

@@ -18,6 +18,21 @@ class UiElementViewSet(viewsets.ModelViewSet):
             return self.queryset.filter(project_id=project_id)
         return self.queryset
 
+    def perform_create(self, serializer):
+        serializer.save(created_by=self.request.user, updated_by=self.request.user)
+
+    def perform_update(self, serializer):
+        serializer.save(updated_by=self.request.user)
+
+    @action(detail=False, methods=['get'], url_path='get-pages')
+    def get_pages(self, request):
+        project_id = request.query_params.get('project_id')
+        if not project_id:
+            return APIResponse("Project ID is required", status=status.HTTP_400_BAD_REQUEST)
+
+        pages = self.queryset.filter(project_id=project_id).values_list('page', flat=True).distinct()
+        return APIResponse({"pages": list(pages)}, status=status.HTTP_200_OK)
+
 
 class UiTestCaseViewSet(viewsets.ModelViewSet):
     queryset = UiTestCase.objects.all()
