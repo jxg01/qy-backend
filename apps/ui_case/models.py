@@ -4,9 +4,17 @@ from users.models import UserProfile
 
 
 class UiElement(models.Model):
+
     project = models.ForeignKey(Projects, on_delete=models.CASCADE)
     name = models.CharField(max_length=64)
-    locator_type = models.CharField(max_length=20, choices=[("xpath", "XPath"), ("css", "CSS"), ("id", "ID")])
+    locator_type = models.CharField(max_length=20, choices=[
+        ("xpath", "XPath"),
+        ("css", "CSS"),
+        ("id", "ID"),
+        ("name", "NAME"),
+        ("class", "CLASS"),
+        ("text", "TEXT")
+    ])
     locator_value = models.CharField(max_length=256)
     description = models.TextField(blank=True)
     page = models.CharField(max_length=256)  # 所属页面路径
@@ -21,19 +29,23 @@ class UiElement(models.Model):
         ordering = ['-created_at']
 
 
-# {
-#   id: number
-#   name: string
-#   selector: string
-#   byType: 'css' | 'xpath' | 'text' | 'id' | 'class' | 'test-id' // 定位方式
-#   description: string
-#   page: string  // 所属页面路径
-#   createdAt: string
-#   updatedAt: string
-# }
+class UiTestModule(models.Model):
+    project = models.ForeignKey(Projects, on_delete=models.CASCADE)
+    name = models.CharField(max_length=128)
+    created_by = models.ForeignKey(UserProfile, on_delete=models.CASCADE, related_name='created_modules')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    updated_by = models.ForeignKey(UserProfile, on_delete=models.CASCADE, related_name='updated_modules', null=True, blank=True)
+
+    class Meta:
+        db_table = 'qy_ui_test_module'
+        verbose_name_plural = verbose_name = 'UI测试模块'
+        ordering = ['-created_at']
+
 
 class UiTestCase(models.Model):
-    project = models.ForeignKey(Projects, on_delete=models.CASCADE)
+    # project = models.ForeignKey(Projects, on_delete=models.CASCADE)
+    module = models.ForeignKey(UiTestModule, on_delete=models.CASCADE)
     name = models.CharField(max_length=128)
     description = models.TextField(blank=True)
     pre_apis = models.JSONField(default=list)  # 前置API步骤为结构化JSON
@@ -63,4 +75,6 @@ class UiExecution(models.Model):
         db_table = 'qy_ui_execution'
         verbose_name_plural = verbose_name = 'UI测试执行'
         ordering = ['-executed_at']
+
+
 

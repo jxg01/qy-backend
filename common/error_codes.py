@@ -32,6 +32,13 @@ class ErrorCode(Enum):
     SUITE_RELATED_CASE_NOT_EXISTS = (5001, "套件下没有关联用例")
     SUITE_RELATED_CASE_ALL_DISABLED = (5002, "套件下所有用例都已被禁用")
 
+    # UI 元素
+    UI_ELEMENT_NAME_EXISTS = (6001, "元素名称不能重复")
+    UI_ELEMENT_NAME_EMPTY = (6002, "元素名称不能为空")
+    UI_ELEMENT_LOCATOR_EXISTS = (6003, "定位值已存在")
+    UI_ELEMENT_LOCATOR_VALUE_EMPTY = (6002, "定位值不能为空")
+
+
     # 后续新增错误码只需在此添加
 
     def __init__(self, code: int, message: str):
