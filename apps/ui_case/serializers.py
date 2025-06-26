@@ -49,6 +49,19 @@ class UiTestCaseSerializer(serializers.ModelSerializer):
         model = UiTestCase
         fields = '__all__'
 
+    def validate_name(self, value):
+        instance = self.instance
+        current_name = getattr(instance, 'name', None)
+        print('current_name => ', current_name)
+        # 忽略大小写 比较
+        if instance and value.lower() == current_name.lower():
+            return value
+        if not value:
+            raise BusinessException(ErrorCode.UI_TESTCASE_NAME_EMPTY)
+        if UiTestCase.objects.filter(name__iexact=value).exists():
+            raise BusinessException(ErrorCode.UI_TESTCASE_NAME_EXISTS)
+        return value
+
 
 class UiTestModuleSerializer(serializers.ModelSerializer):
     created_by = serializers.CharField(source='created_by.username', read_only=True)

@@ -36,7 +36,9 @@ class ErrorCode(Enum):
     UI_ELEMENT_NAME_EXISTS = (6001, "元素名称不能重复")
     UI_ELEMENT_NAME_EMPTY = (6002, "元素名称不能为空")
     UI_ELEMENT_LOCATOR_EXISTS = (6003, "定位值已存在")
-    UI_ELEMENT_LOCATOR_VALUE_EMPTY = (6002, "定位值不能为空")
+    UI_ELEMENT_LOCATOR_VALUE_EMPTY = (6004, "定位值不能为空")
+    UI_TESTCASE_NAME_EXISTS = (6005, "用例名称不能重复")
+    UI_TESTCASE_NAME_EMPTY = (6006, "用例名称不能为空")
 
 
     # 后续新增错误码只需在此添加
