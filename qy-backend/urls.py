@@ -14,6 +14,8 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 from django.contrib import admin
+from django.conf import settings
+from django.conf.urls.static import static
 
 from drf_yasg.views import get_schema_view
 from drf_yasg import openapi
@@ -53,7 +55,7 @@ router.register('ui-modules', ui_case_views.UiTestModuleViewSet, basename='ui-mo
 
 router.register('ui-testcases', ui_case_views.UiTestCaseViewSet, basename='ui-testcase')
 router.register('ui-executions', ui_case_views.UiExecutionViewSet, basename='ui-execution')
-
+router.register('ui-test-files', ui_case_views.UiTestFileViewSet, basename='ui-test-file')
 
 
 router.register('home', HomeStatisticViewSet, basename='home')
@@ -115,4 +117,4 @@ urlpatterns = [
     # # 测试结果模块
     # path('api/results/', ResultView.as_view({'get': 'list'}), name='select_test_result'),
     # path('api/delResult/<int:id>/', ResultView.as_view({'get': 'destroy'}), name='delete_test_result'),
-]
+] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

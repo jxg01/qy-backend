@@ -65,11 +65,18 @@ class UiTestCase(models.Model):
 
 class UiExecution(models.Model):
     testcase = models.ForeignKey(UiTestCase, on_delete=models.CASCADE)
-    status = models.CharField(max_length=20, choices=[("pending", "Pending"), ("success", "Success"), ("fail", "Fail")])
-    logs = models.TextField()
-    screenshots = models.JSONField(default=list)
+    status = models.CharField(
+        max_length=20, choices=[("pending", "Pending"), ("running", "Running"),
+                                ("success", "Success"), ("fail", "Fail")]
+    )
+    steps_log = models.JSONField(default=[])
+    screenshot = models.FileField(upload_to='screenshots/', null=True, blank=True)
     duration = models.FloatField()
+    browser_info = models.CharField(max_length=128, blank=True, null=True)
+
     executed_at = models.DateTimeField(auto_now_add=True)
+    executed_by = models.ForeignKey(UserProfile, on_delete=models.CASCADE)
+
 
     class Meta:
         db_table = 'qy_ui_execution'
@@ -77,4 +84,14 @@ class UiExecution(models.Model):
         ordering = ['-executed_at']
 
 
+class UiTestFile(models.Model):
+    name = models.CharField(max_length=128)
+    file = models.FileField(upload_to='ui_test_files/')
+    description = models.TextField(blank=True, null=True)
+    uploaded_by = models.ForeignKey(UserProfile, on_delete=models.CASCADE, related_name='uploaded_files')
+    uploaded_at = models.DateTimeField(auto_now_add=True)
 
+    class Meta:
+        db_table = 'qy_ui_test_file'
+        verbose_name_plural = verbose_name = 'UI测试文件'
+        ordering = ['-uploaded_at']
