@@ -67,7 +67,7 @@ class UiExecution(models.Model):
     testcase = models.ForeignKey(UiTestCase, on_delete=models.CASCADE)
     status = models.CharField(
         max_length=20, choices=[("pending", "Pending"), ("running", "Running"),
-                                ("success", "Success"), ("fail", "Fail")]
+                                ("passed", "Passed"), ("failed", "Failed")]
     )
     steps_log = models.JSONField(default=[])
     screenshot = models.FileField(upload_to='screenshots/', null=True, blank=True)

@@ -96,6 +96,8 @@ class UiTestModuleSerializer(serializers.ModelSerializer):
 class UiExecutionSerializer(serializers.ModelSerializer):
     # screenshot_url = serializers.SerializerMethodField()
     executed_at = serializers.DateTimeField(format='%Y-%m-%d %H:%M:%S', read_only=True)
+    executed_by = serializers.CharField(source='executed_by.username', read_only=True)
+
     class Meta:
         model = UiExecution
         fields = '__all__'

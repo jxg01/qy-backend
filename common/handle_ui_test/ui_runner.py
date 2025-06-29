@@ -87,7 +87,7 @@ async def run_ui_case_tool(case_json, is_headless=False, browser_type='chromium'
         page = await browser_context.new_page()
 
         main_results = []
-        case_status = 'success'
+        case_status = 'passed'
         screenshot_path = ''
         for idx, step in enumerate(case_json.get('steps', [])):
             try:
@@ -155,7 +155,7 @@ async def run_ui_case_tool(case_json, is_headless=False, browser_type='chromium'
 
                         result = {"step": step_filled, "status": "pass", "log": "Assertion passed"}
                     except AssertionError as e:
-                        case_status = 'fail'
+                        case_status = 'failed'
                         screenshot_path = f"screenshots/step_{idx + 1}_fail_assert.png"
                         await page.screenshot(path=os.path.join(settings.MEDIA_ROOT, screenshot_path))
                         result = {
@@ -167,7 +167,7 @@ async def run_ui_case_tool(case_json, is_headless=False, browser_type='chromium'
                 else:
                     result = {"step": step_filled, "status": "pass", "log": "Unknown action skipped"}
             except Exception as e:
-                case_status = 'fail'
+                case_status = 'failed'
                 screenshot_path = f"screenshots/step_{idx + 1}_fail_{step['action']}.png"
                 await page.screenshot(path=os.path.join(settings.MEDIA_ROOT, screenshot_path))
                 result = {

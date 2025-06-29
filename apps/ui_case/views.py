@@ -120,7 +120,7 @@ class UiTestCaseViewSet(viewsets.ModelViewSet):
             browser_info = request.data.get('browser_info', 'chromium')
             testcase = self.get_object()
             execution = UiExecution.objects.create(
-                testcase=testcase, status='pending', steps_log='', screenshot='',
+                testcase=testcase, status='running', steps_log='', screenshot='',
                 duration=0, browser_info=browser_info, executed_by=request.user
             )
             run_ui_test_case.delay(execution.id, 'chromium')
