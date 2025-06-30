@@ -15,7 +15,7 @@ log = logging.getLogger('celery.task')
 
 
 @shared_task
-def run_ui_test_case(execution_id: int, browser_type: str,):
+def run_ui_test_case(execution_id: int, browser_type: str, is_headless):
     start_time = time.time()
     execution = UiExecution.objects.get(id=execution_id)
     try:
@@ -30,7 +30,7 @@ def run_ui_test_case(execution_id: int, browser_type: str,):
         # execution.status = 'running'
         execution.save()
         log.info('开始执行.............')
-        case_status, logs, screenshot = asyncio.run(run_ui_case_tool(case_json=case_json))
+        case_status, logs, screenshot = asyncio.run(run_ui_case_tool(case_json=case_json, is_headless=is_headless))
         log.info('执行完成，准备收集结果.............')
 
         execution.duration = round(time.time() - start_time, 3)

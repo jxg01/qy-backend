@@ -123,7 +123,7 @@ class UiTestCaseViewSet(viewsets.ModelViewSet):
                 testcase=testcase, status='running', steps_log='', screenshot='',
                 duration=0, browser_info=browser_info, executed_by=request.user
             )
-            run_ui_test_case.delay(execution.id, 'chromium')
+            run_ui_test_case.delay(execution.id, 'chromium', is_headless=False)
             return APIResponse("测试任务已开始", status=status.HTTP_202_ACCEPTED)
         except Exception as e:
             return APIResponse(str(e), status=status.HTTP_400_BAD_REQUEST)
@@ -135,9 +135,18 @@ class UiExecutionViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        testcase_id = self.request.query_params.get('testcase_id')
-        if testcase_id:
-            return self.queryset.filter(testcase_id=testcase_id)
+        executed_by = self.request.query_params.get('executed_by')
+        case_name = self.request.query_params.get('case_name')
+        case_status = self.request.query_params.get('case_status')
+
+        if case_status:
+            self.queryset = self.queryset.filter(status=case_status)
+        if case_name:
+            self.queryset = self.queryset.filter(testcase__name__icontains=case_name)
+
+        if executed_by:
+            self.queryset = self.queryset.filter(executed_by__username__icontains=executed_by)
+
         return self.queryset
 
     # def retrieve(self, request, *args, **kwargs):
