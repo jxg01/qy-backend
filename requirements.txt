@@ -24,3 +24,4 @@ django_celery_results==2.6.0
 redis==4.0.0
 faker==37.4.0
 sqlalchemy==2.0.41
+httpx==0.28.1

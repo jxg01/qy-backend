@@ -69,7 +69,7 @@ class UiExecution(models.Model):
         max_length=20, choices=[("pending", "Pending"), ("running", "Running"),
                                 ("passed", "Passed"), ("failed", "Failed")]
     )
-    steps_log = models.JSONField(default=[])
+    steps_log = models.JSONField(default={})
     screenshot = models.FileField(upload_to='screenshots/', null=True, blank=True)
     duration = models.FloatField()
     browser_info = models.CharField(max_length=128, blank=True, null=True)

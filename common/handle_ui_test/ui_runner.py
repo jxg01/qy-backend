@@ -1,3 +1,9 @@
+import os
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'qy-backend.settings')
+import django
+django.setup()
+
+from projects.models import ProjectEnvs
 from playwright.async_api import async_playwright
 import time
 import re
@@ -6,12 +12,14 @@ import logging
 import asyncio
 import httpx
 from django.conf import settings
-import os
+from common.handle_test import execute_sql
+from asgiref.sync import sync_to_async
+
 
 log = logging.getLogger('django')
 
 
-async def run_ui_case_tool(case_json, is_headless=False, browser_type='chromium'):
+async def run_ui_case_tool(case_json, is_headless, browser_type):
     log.info('start run_ui_case_tool !!!')
 
     async def fill_vars(obj, con):
@@ -60,8 +68,8 @@ async def run_ui_case_tool(case_json, is_headless=False, browser_type='chromium'
 
     log.info('开始启动浏览器.......')
     async with async_playwright() as p:
-        browser = await getattr(p, browser_type).launch(headless=is_headless)
-        browser_context = await browser.new_context()
+        browser = await getattr(p, browser_type).launch(headless=is_headless, args=["--start-maximized"])
+        browser_context = await browser.new_context(no_viewport=True)
 
         # Inject token if required
         if any(api.get('name') == 'token' for api in case_json.get('pre_apis', [])):
@@ -87,6 +95,7 @@ async def run_ui_case_tool(case_json, is_headless=False, browser_type='chromium'
         page = await browser_context.new_page()
 
         main_results = []
+
         case_status = 'passed'
         screenshot_path = ''
         for idx, step in enumerate(case_json.get('steps', [])):
@@ -178,11 +187,52 @@ async def run_ui_case_tool(case_json, is_headless=False, browser_type='chromium'
             main_results.append(result)
         await browser.close()
     # 执行后置sql ｜ api
-    for i in case_json.get('post_', []):
-        print(i)
+
+    async def get_db_info(db_env_id):
+        return await sync_to_async(ProjectEnvs.objects.select_related('db_config').filter(id=db_env_id).values(
+            'db_config__name', 'db_config__host', 'db_config__port', 'db_config__username', 'db_config__password'
+        ).first)()
+
+    post_result = []
+    log.info(f'case_json => {case_json}')
+    log.info(f'准执行sql =========== {case_json.get("post_steps", [])}')
+    for sql_info in case_json.get('post_steps', []):
+        log.info(f'sql info ===> {sql_info}')
+        if sql_info.get('type') == 'sql':
+            sql = sql_info.get('sql')
+            log.info('try 前面执行sql ')
+            try:
+                db_info = await get_db_info(sql_info.get('dbEnv'))
+                db_config = {
+                    'name': db_info.get('db_config__name'),
+                    'host': db_info.get('db_config__host'),
+                    'port': db_info.get('db_config__port'),
+                    'username': db_info.get('db_config__username'),
+                    'password': db_info.get('db_config__password'),
+                }
+                log.info(f"Executing SQL: {sql} with DB config: {db_config}")
+                sql_result = execute_sql.execute_sql_dynamic(db_config, sql)
+                log.info(f"SQL execution result: {sql_result}")
+                log_info = {'sql': sql, 'sql_result': sql_result}
+                post_result.append(log_info)
+
+            except Exception as e:
+                log_info = {'sql': sql, 'sql_result': e}
+                post_result.append(log_info)
+                log.error(f"Error executing post_step: {sql_info}, Error: {str(e)}")
+        else:
+            log.warning(f"Unsupported post_step type: {sql_info.get('type')}")
+
     log.info('end execute ui test case !!!')
+    all_result = {
+        'pre_apis_result': [],
+        'steps_result': main_results,
+        'post_steps_result': post_result
+    }
+    log.info(f'收集测试日志：{all_result}')
     # return {"steps": main_results, "context": context, "screenshot_path": screenshot_path}
-    return case_status, main_results, screenshot_path
+    log.info(f'case_status in the end execute => {case_status}')
+    return case_status, all_result, screenshot_path
 
 
 # 拉取任务 & 回调平台的接口建议见下文

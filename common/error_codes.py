@@ -39,6 +39,8 @@ class ErrorCode(Enum):
     UI_ELEMENT_LOCATOR_VALUE_EMPTY = (6004, "定位值不能为空")
     UI_TESTCASE_NAME_EXISTS = (6005, "用例名称不能重复")
     UI_TESTCASE_NAME_EMPTY = (6006, "用例名称不能为空")
+    PROJECT_IS_EMPTY = (6007, "项目不能为空")
+    DB_NOT_EXISTS = (6008, "数据库未配置，请检查默认环境的数据库信息")
 
 
     # 后续新增错误码只需在此添加

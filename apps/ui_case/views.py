@@ -1,6 +1,5 @@
 from common.utils import APIResponse
 from rest_framework import viewsets, permissions, status
-from rest_framework.response import Response
 from ui_case.models import UiTestCase, UiExecution, UiElement, UiTestModule, UiTestFile
 from ui_case.serializers import (UiTestCaseSerializer, UiExecutionSerializer,
                                  UiElementSerializer, UiTestModuleSerializer,
@@ -9,6 +8,8 @@ from common.handle_ui_test.ui_tasks import run_ui_test_case
 from rest_framework.decorators import action
 from django.db.models import Q
 import logging
+from common.exceptions import BusinessException
+from common.error_codes import ErrorCode
 
 log = logging.getLogger('django')
 
@@ -123,9 +124,10 @@ class UiTestCaseViewSet(viewsets.ModelViewSet):
                 testcase=testcase, status='running', steps_log='', screenshot='',
                 duration=0, browser_info=browser_info, executed_by=request.user
             )
-            run_ui_test_case.delay(execution.id, 'chromium', is_headless=False)
+            run_ui_test_case.delay(execution.id, 'chromium', is_headless=True)
             return APIResponse("测试任务已开始", status=status.HTTP_202_ACCEPTED)
         except Exception as e:
+            log.info(f'失败的任务：{e}')
             return APIResponse(str(e), status=status.HTTP_400_BAD_REQUEST)
 
 
