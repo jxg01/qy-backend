@@ -39,18 +39,22 @@ async def run_ui_case_tool(case_json, is_headless, browser_type):
     async def call_pre_api(api_cfg, cont):
         req_cfg = await fill_vars(api_cfg['request'], cont)
         method = req_cfg.get('method', 'GET').upper()
+        _url = req_cfg['url']
         if api_cfg.get('name') == 'token':
-            url = req_cfg['url']
-            if 'http' in url:
-                cont['domain'] = url.split('/')[2]
+            if 'http' in _url:
+                cont['domain'] = _url.split('/')[2]
             else:
-                cont['domain'] = url.split('/')[0]
-
+                cont['domain'] = _url.split('/')[0]
         headers = req_cfg.get('headers', {})
         data = req_cfg.get('body') if isinstance(req_cfg.get('body'), dict) else json.loads(req_cfg.get('body'))
         json_data = req_cfg.get('json')
-        async with httpx.AsyncClient() as client:
-            resp = await client.request(method, url, headers=headers, data=data, json=json_data)
+        async with httpx.AsyncClient(timeout=httpx.Timeout(60.0)) as client:
+            log.info(f"h = {headers} | method = {method} | url = {_url} | data = {data} | json = {json_data}")
+            try:
+                resp = await client.request(method, _url, headers=headers, data=data, json=json_data)
+            except Exception as ep:
+                log.error(f"An error occurred: {str(ep)}")  # Log the exception message
+                log.error(f"Exception type: {type(ep).__name__}")  # Log the exception type
             log.info(f'登录接口返回结果(未处理)：{resp.text}')
             resp.raise_for_status()
             resp_json = resp.json()
@@ -68,8 +72,9 @@ async def run_ui_case_tool(case_json, is_headless, browser_type):
 
     log.info('开始启动浏览器.......')
     async with async_playwright() as p:
-        browser = await getattr(p, browser_type).launch(headless=is_headless, args=["--start-maximized"])
-        browser_context = await browser.new_context(no_viewport=True)
+        browser = await getattr(p, browser_type).launch(headless=is_headless,
+                                                        args=["--start-maximized", "--window-size=1920,1080"])
+        browser_context = await browser.new_context(viewport={"width": 1920, "height": 1080})
 
         # Inject token if required
         if any(api.get('name') == 'token' for api in case_json.get('pre_apis', [])):
@@ -165,7 +170,7 @@ async def run_ui_case_tool(case_json, is_headless, browser_type):
                         result = {"step": step_filled, "status": "pass", "log": "Assertion passed"}
                     except AssertionError as e:
                         case_status = 'failed'
-                        screenshot_path = f"screenshots/step_{idx + 1}_fail_assert.png"
+                        screenshot_path = f"screenshots/step_{idx + 1}_fail_assert_{int(time.time())}.png"
                         await page.screenshot(path=os.path.join(settings.MEDIA_ROOT, screenshot_path))
                         result = {
                             "step": step_filled,
@@ -177,7 +182,7 @@ async def run_ui_case_tool(case_json, is_headless, browser_type):
                     result = {"step": step_filled, "status": "pass", "log": "Unknown action skipped"}
             except Exception as e:
                 case_status = 'failed'
-                screenshot_path = f"screenshots/step_{idx + 1}_fail_{step['action']}.png"
+                screenshot_path = f"screenshots/step_{idx + 1}_fail_{step['action']}_{int(time.time())}.png"
                 await page.screenshot(path=os.path.join(settings.MEDIA_ROOT, screenshot_path))
                 result = {
                     'step': step, 'status': 'fail', 'error': str(e), 'screenshot': screenshot_path
@@ -283,16 +288,3 @@ if __name__ == '__main__':
     print("Execution Result:", results)
     # print('================================ \n', r)
 
-"""
-{
-    "url": "https://portal-tmgm-cn-2-qa.lbcrmsit.com/api/authorizations/member",
-    "method": "POST",
-    "body": '{"username": "eddy.jiang1@lifebyte.io", "password": "Lb%.6688"}',
-    "extracts": [
-        {
-            "varName": "token",
-            "jsonpath": "$.access_token"
-        }
-    ]
-}
-"""

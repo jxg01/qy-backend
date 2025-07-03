@@ -41,7 +41,7 @@ class ErrorCode(Enum):
     UI_TESTCASE_NAME_EMPTY = (6006, "用例名称不能为空")
     PROJECT_IS_EMPTY = (6007, "项目不能为空")
     DB_NOT_EXISTS = (6008, "数据库未配置，请检查默认环境的数据库信息")
-
+    SELECTED_CASES_ID_IS_EMPTY = (6008, "用例ID不能为空")
 
     # 后续新增错误码只需在此添加
 

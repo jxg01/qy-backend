@@ -45,6 +45,6 @@ def run_ui_test_case(execution_id: int, browser_type: str, is_headless):
 
     except Exception as e:
         log.error(f'Ui Test Case Tasks Execute Error => {str(e)}')
-        execution.status = 'fail'
+        execution.status = 'failed'
         execution.duration = round(time.time() - start_time, 3)
         execution.save()

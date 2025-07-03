@@ -111,7 +111,7 @@ class DBConfig(models.Model):
     env = models.OneToOneField(ProjectEnvs, on_delete=models.CASCADE,
                                verbose_name='关联环境', help_text='关联环境', related_name='db_config')
     name = models.CharField(max_length=60, verbose_name='数据库名称', help_text='数据库名称')
-    host = models.CharField(max_length=60, verbose_name='数据库地址', help_text='数据库地址')
+    host = models.CharField(max_length=240, verbose_name='数据库地址', help_text='数据库地址')
     port = models.IntegerField(default=3306, verbose_name='端口号', help_text='端口号')
     username = models.CharField(max_length=60, verbose_name='用户名', help_text='用户名')
     password = models.CharField(max_length=60, verbose_name='密码', help_text='密码')

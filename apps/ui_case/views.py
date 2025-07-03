@@ -130,6 +130,32 @@ class UiTestCaseViewSet(viewsets.ModelViewSet):
             log.info(f'失败的任务：{e}')
             return APIResponse(str(e), status=status.HTTP_400_BAD_REQUEST)
 
+    @action(detail=False, methods=['post'], url_path='run-selected')
+    def run_selected(self, request, pk=None):
+        """
+        接口参数：{"browser_info": "chromium", "case_ids": [1, 2]}
+        chromium‌（Chrome/Edge基础）
+        WebKit‌（Safari基础）
+        firefox
+        """
+        # try:
+        browser_info = request.data.get('browser_info', 'chromium')
+        case_ids = request.data.get('case_ids', [])
+        if not case_ids:
+            raise BusinessException(ErrorCode.SELECTED_CASES_ID_IS_EMPTY)
+        testcases = UiTestCase.objects.filter(id__in=case_ids)
+        for testcase in testcases:
+            execution = UiExecution.objects.create(
+                testcase=testcase, status='running', steps_log='', screenshot='',
+                duration=0, browser_info=browser_info, executed_by=request.user
+            )
+            run_ui_test_case.delay(execution.id, browser_info, is_headless=True)
+            print('提交任务的用例：', testcase.name)
+        return APIResponse("测试任务已开始", status=status.HTTP_202_ACCEPTED)
+        # except Exception as e:
+        #     log.info(f'失败的任务：{e}')
+        #     return APIResponse(str(e), status=status.HTTP_400_BAD_REQUEST)
+
 
 class UiExecutionViewSet(viewsets.ModelViewSet):
     queryset = UiExecution.objects.all()
