@@ -25,3 +25,4 @@ redis==4.0.0
 faker==37.4.0
 sqlalchemy==2.0.41
 httpx==0.28.1
+django-celery-beat==2.8.1

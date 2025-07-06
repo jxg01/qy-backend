@@ -14,27 +14,41 @@ import httpx
 from django.conf import settings
 from common.handle_test import execute_sql
 from asgiref.sync import sync_to_async
+import jsonpath
 
-
-log = logging.getLogger('django')
+log = logging.getLogger('celery.task')
 
 
 async def run_ui_case_tool(case_json, is_headless, browser_type):
     log.info('start run_ui_case_tool !!!')
 
     async def fill_vars(obj, con):
+        pattern = re.compile(r"\$\{(\w+)\}")
         if isinstance(obj, str):
-            return re.sub(r"\$\{(\w+)\}", lambda m: str(con.get(m.group(1), m.group(0))), obj)
+            return pattern.sub(lambda m: str(con.get(m.group(1), m.group(0))), obj)
         elif isinstance(obj, dict):
             return {k: await fill_vars(v, con) for k, v in obj.items()}
         elif isinstance(obj, list):
             return [await fill_vars(i, con) for i in obj]
-        else:
-            return obj
+        return obj
 
-    async def extract_json_value(resp_json, jsonpath):
-        key = jsonpath.lstrip("$.")
-        return resp_json.get(key)
+    async def extract_json_value(resp_json, jsonpath_value):
+        value = jsonpath.jsonpath(resp_json, jsonpath_value)
+        if value:
+            return value[0]
+        return ''
+
+    async def retry(func, retries=3, delay=2, *args, **kwargs):
+        for attempt in range(retries):
+            try:
+                log.info(f'🚀 准备开始第[{attempt + 1}]次执行前置接口')
+                return await func(*args, **kwargs)
+            except Exception as er:
+                log.info(f'🚀 第[{attempt + 1}]次执行前置接口失败，失败原因是：{str(er)}')
+                if attempt < retries - 1:
+                    await asyncio.sleep(delay)
+                else:
+                    raise er
 
     async def call_pre_api(api_cfg, cont):
         req_cfg = await fill_vars(api_cfg['request'], cont)
@@ -49,26 +63,37 @@ async def run_ui_case_tool(case_json, is_headless, browser_type):
         data = req_cfg.get('body') if isinstance(req_cfg.get('body'), dict) else json.loads(req_cfg.get('body'))
         json_data = req_cfg.get('json')
         async with httpx.AsyncClient(timeout=httpx.Timeout(60.0)) as client:
-            log.info(f"h = {headers} | method = {method} | url = {_url} | data = {data} | json = {json_data}")
+            request_info = f"header = {headers} | method = {method} | url = {_url} | formData = {data} | jsonData = {json_data}"
+            api_response = ''
+            log.info(request_info)
             try:
-                resp = await client.request(method, _url, headers=headers, data=data, json=json_data)
+                resp = await retry(client.request, retries=3, delay=2, method=method, url=_url, headers=headers,
+                                   data=data)
+                resp.raise_for_status()
+                log.info(f'登录接口返回结果(未处理)：{resp.text[:100]}')
+                api_response = resp.text
+
+
+                resp_json = resp.json()
+                log.info(f"api_cfg.get('extracts', []), {api_cfg.get('extracts', [])}")
+                for extract in api_cfg.get('extracts', []):
+                    value = await extract_json_value(resp_json, extract['jsonpath'])
+                    cont[extract['varName']] = value
+            except httpx.ReadTimeout as et:
+                log.error(f"请求接口超时: {str(et)}")
             except Exception as ep:
-                log.error(f"An error occurred: {str(ep)}")  # Log the exception message
+                log.error(f"请求接口特殊异常: {str(ep)}")  # Log the exception message
                 log.error(f"Exception type: {type(ep).__name__}")  # Log the exception type
-            log.info(f'登录接口返回结果(未处理)：{resp.text}')
-            resp.raise_for_status()
-            resp_json = resp.json()
-            for extract in api_cfg.get('extracts', []):
-                value = await extract_json_value(resp_json, extract['jsonpath'])
-                cont[extract['varName']] = value
+        return {"request": request_info, "response": api_response, "variables": cont}
 
     context = {}
-
+    pre_result = []
     # 1. Pre-API (e.g., token retrieval)
     log.info('开始执行前置条件.......')
     for pre_api in case_json.get('pre_apis', []):
-        await call_pre_api(pre_api, context)
-        log.info(f"Token retrieved: {context.get('token', 'Not set')}")
+        result = await call_pre_api(pre_api, context)
+        pre_result.append(result)
+        log.info(f"内存的token为: {context.get('token', 'Not set')[:100]}")
 
     log.info('开始启动浏览器.......')
     async with async_playwright() as p:
@@ -91,7 +116,7 @@ async def run_ui_case_tool(case_json, is_headless, browser_type):
 
             cookie = {
                 'name': 'admin_token',
-                'value': context.get("token", ""),
+                'value': str(context.get("token", "")),
                 'domain': context.get("domain", ""),
                 'path': '/'
             }
@@ -128,8 +153,6 @@ async def run_ui_case_tool(case_json, is_headless, browser_type):
                     result = {"step": step_filled, "status": "pass",
                               "log": f"Executed script: {script}, Result: {result_value}"}
                 elif step_filled.get("action") == "upload":
-                    # file_base_root =
-                    # file_path = file_base_root + step_filled["filePath"]
                     file_path = os.path.join(settings.MEDIA_ROOT, step_filled["filePath"])
                     log.info(f'上传图片路径 === {file_path}')
                     await page.wait_for_selector(step_filled['selector'], state='visible')
@@ -149,25 +172,34 @@ async def run_ui_case_tool(case_json, is_headless, browser_type):
                             await page.wait_for_selector(step_filled['selector'], state='visible')
                             txt = await page.text_content(step_filled["selector"])
                             assert step_filled["expect"] in txt, f"Expected '{step_filled['expect']}' in '{txt}'"
+                            result = {"step": step_filled, "status": "pass",
+                                      "log": f"assert type: {assert_type} | Expected '{step_filled['expect']}' in '{txt}'"}
                         elif assert_type == "visible":
                             await page.wait_for_selector(step_filled['selector'], state='visible')
                             is_visible = await page.is_visible(step_filled["selector"])
                             assert is_visible, f"Element '{step_filled['selector']}' is not visible"
+                            result = {"step": step_filled, "status": "pass",
+                                      "log": f"assert type: {assert_type} | Element '{step_filled['selector']}' is not visible"}
                         elif assert_type == "url":
                             current_url = page.url
                             assert step_filled[
                                        "expect"] in current_url, f"Expected '{step_filled['expect']}' in URL '{current_url}'"
+                            result = {"step": step_filled, "status": "pass",
+                                      "log": f"assert type: {assert_type} | Expected '{step_filled['expect']}' in URL '{current_url}'"}
                         elif assert_type == "attribute":
                             await page.wait_for_selector(step_filled['selector'], state='visible')
                             attr_value = await page.get_attribute(step_filled["selector"], step_filled["attribute"])
                             assert step_filled[
                                        "expect"] in attr_value, f"Expected '{step_filled['expect']}' in attribute '{attr_value}'"
+                            result = {"step": step_filled, "status": "pass",
+                                      "log": f"assert type: {assert_type} | Expected '{step_filled['expect']}' in attribute '{attr_value}'"}
                         elif assert_type == "title":
                             current_title = await page.title()
                             assert step_filled[
                                        "expect"] in current_title, f"Expected '{step_filled['expect']}' in title '{current_title}'"
-
-                        result = {"step": step_filled, "status": "pass", "log": "Assertion passed"}
+                            result = {"step": step_filled, "status": "pass",
+                                      "log": f"assert type: {assert_type} | Expected '{step_filled['expect']}' in title '{current_title}'"}
+                        # result = {"step": step_filled, "status": "pass", "log": "Assertion passed"}
                     except AssertionError as e:
                         case_status = 'failed'
                         screenshot_path = f"screenshots/step_{idx + 1}_fail_assert_{int(time.time())}.png"
@@ -199,13 +231,12 @@ async def run_ui_case_tool(case_json, is_headless, browser_type):
         ).first)()
 
     post_result = []
-    log.info(f'case_json => {case_json}')
-    log.info(f'准执行sql =========== {case_json.get("post_steps", [])}')
+    # log.info(f'case_json => {case_json}')
+    log.info(f'用例步骤执行完毕，准执行后置sql =========== {case_json.get("post_steps", [])}')
     for sql_info in case_json.get('post_steps', []):
         log.info(f'sql info ===> {sql_info}')
         if sql_info.get('type') == 'sql':
             sql = sql_info.get('sql')
-            log.info('try 前面执行sql ')
             try:
                 db_info = await get_db_info(sql_info.get('dbEnv'))
                 db_config = {
@@ -227,64 +258,13 @@ async def run_ui_case_tool(case_json, is_headless, browser_type):
                 log.error(f"Error executing post_step: {sql_info}, Error: {str(e)}")
         else:
             log.warning(f"Unsupported post_step type: {sql_info.get('type')}")
-
-    log.info('end execute ui test case !!!')
+    log.info('后置sql全部执行完毕！')
     all_result = {
-        'pre_apis_result': [],
+        'pre_apis_result': pre_result,
         'steps_result': main_results,
         'post_steps_result': post_result
     }
-    log.info(f'收集测试日志：{all_result}')
+    # log.info(f'收集测试日志：{all_result}')
     # return {"steps": main_results, "context": context, "screenshot_path": screenshot_path}
-    log.info(f'case_status in the end execute => {case_status}')
+    log.info(f'执行用例后的状态 => {case_status}')
     return case_status, all_result, screenshot_path
-
-
-# 拉取任务 & 回调平台的接口建议见下文
-if __name__ == '__main__':
-    # 示例用法
-    case_json1 = {
-        "env": {
-            "browser": "chromium",
-            "headless": True
-        },
-        "pre_apis": [
-            {
-                "name": "token",
-                "request": {
-                    "method": "POST",
-                    "url": "https://portal-tmgm-uat.lifebytecrm.dev/api/authorizations/member",
-                    "body": "{\"username\": \"eddy.jiang@lifebyte.io\", \"password\": \"Lb%.6688\"}",
-                },
-                "extracts": [
-                    {"varName": "token", "jsonpath": "$.access_token"}
-                ]
-            }
-        ],
-        "steps": [
-            # {"action": "set_header", "header": {"authorization": "Bearer ${token}", "Accept": "application/prs.CRM-Back-End.v2+json"}},
-
-            {"action": "goto", "url": "https://portal-tmgm-uat.lifebytecrm.dev/dashboard"},
-            # {"action": "sleep", "seconds": '5'},
-            {"action": "click", "selector": "xpath=//span[text()='Promotions']"},
-            # {"action": "sleep", "seconds": '5'},
-            {"action": "click", "selector": "xpath=//span[text()='首頁']"},
-            # {"action": "sleep", "seconds": '5'},
-            # {"action": "click", "element": {"locator_type": "xpath", "locator_value": '//span[text()="首頁"]'}},
-            # {"action": "sleep", "seconds": '15'},
-            # {"action": "click", "element": {"locator_type": "xpath", "locator_value": '//div[@data-testid="country"]'}},
-            # {"action": "sleep", "seconds": '1'},
-            # {"action": "click", "element": {"locator_type": "xpath", "locator_value": "//div[@class='el-select-dropdown']//li/span[text()='Laos']"}},
-            # {"action": "sleep", "seconds": '1'},
-            # {"action": "input", "element": {"locator_type": "xpath", "locator_value": '//input[@placeholder="Last Name"]'}, "text": "xxxccc"},
-            # {"action": "sleep", "seconds": '1'},
-            # {"action": "input", "element": {"locator_type": "id", "locator_value": "password"}, "text": "password123"},
-            # {"action": "click", "element": {"locator_type": "css", "locator_value": ".login-button"}},
-            {"action": "assert", "assert_type": "title", "expect": "TMGM-1"}
-        ]
-    }
-    # r = run_case_new(case_json)
-    results = asyncio.run(run_ui_case_tool(case_json1))
-    print("Execution Result:", results)
-    # print('================================ \n', r)
-

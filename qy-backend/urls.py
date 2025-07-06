@@ -30,6 +30,7 @@ from projects.views import (ProjectsView, GlobalVariableView, ProjectsEnvsView,
 from rest_framework.routers import DefaultRouter
 from mt_tool import views as mt_views
 from ui_case import views as ui_case_views
+from ScheduledTasks.views import ScheduledTaskViewSet
 
 router = DefaultRouter()
 router.register('users', UserViewSet)
@@ -56,7 +57,8 @@ router.register('ui-modules', ui_case_views.UiTestModuleViewSet, basename='ui-mo
 router.register('ui-testcases', ui_case_views.UiTestCaseViewSet, basename='ui-testcase')
 router.register('ui-executions', ui_case_views.UiExecutionViewSet, basename='ui-execution')
 router.register('ui-test-files', ui_case_views.UiTestFileViewSet, basename='ui-test-file')
-
+# 定时任务
+router.register('scheduled-tasks', ScheduledTaskViewSet, basename='scheduled-tasks')
 
 router.register('home', HomeStatisticViewSet, basename='home')
 

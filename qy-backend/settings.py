@@ -50,10 +50,11 @@ INSTALLED_APPS = [
     'projects.apps.ProjectsConfig',
     'mt_tool.apps.MtToolConfig',
     'ui_case.apps.UiCaseConfig',
+    'ScheduledTasks.apps.ScheduledTasksConfig',
     'corsheaders',
     'drf_yasg',
     'django_celery_results',
-    # 'playwright',
+    'django_celery_beat',      # Celery定时任务
 ]
 
 CORS_ORIGIN_ALLOW_ALL = True

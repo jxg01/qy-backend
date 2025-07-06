@@ -118,13 +118,14 @@ class UiTestCaseViewSet(viewsets.ModelViewSet):
         接口参数：{"browser_info": "chromium"}
         """
         try:
-            browser_info = request.data.get('browser_info', 'chromium')
+            browser_info = request.data.get('browser_type', 'chromium')
+            headless = request.data.get('headless', True)
             testcase = self.get_object()
             execution = UiExecution.objects.create(
                 testcase=testcase, status='running', steps_log='', screenshot='',
                 duration=0, browser_info=browser_info, executed_by=request.user
             )
-            run_ui_test_case.delay(execution.id, 'chromium', is_headless=True)
+            run_ui_test_case.delay(execution.id, browser_info, is_headless=headless)
             return APIResponse("测试任务已开始", status=status.HTTP_202_ACCEPTED)
         except Exception as e:
             log.info(f'失败的任务：{e}')
@@ -134,13 +135,17 @@ class UiTestCaseViewSet(viewsets.ModelViewSet):
     def run_selected(self, request, pk=None):
         """
         接口参数：{"browser_info": "chromium", "case_ids": [1, 2]}
-        chromium‌（Chrome/Edge基础）
-        WebKit‌（Safari基础）
+        chromium（Chrome/Edge基础）
+        webKit（Safari基础）
         firefox
         """
         # try:
-        browser_info = request.data.get('browser_info', 'chromium')
+        browser_info = request.data.get('browser_type', 'chromium')
+        headless = request.data.get('headless', True)
         case_ids = request.data.get('case_ids', [])
+        log.info(f'接收到的用例ID列表：{case_ids} | 浏览器信息：{browser_info} | 是否无头模式：{headless}')
+        if not browser_info:
+            browser_info = 'chromium'
         if not case_ids:
             raise BusinessException(ErrorCode.SELECTED_CASES_ID_IS_EMPTY)
         testcases = UiTestCase.objects.filter(id__in=case_ids)
@@ -149,7 +154,7 @@ class UiTestCaseViewSet(viewsets.ModelViewSet):
                 testcase=testcase, status='running', steps_log='', screenshot='',
                 duration=0, browser_info=browser_info, executed_by=request.user
             )
-            run_ui_test_case.delay(execution.id, browser_info, is_headless=True)
+            run_ui_test_case.delay(execution.id, browser_info, is_headless=headless)
             print('提交任务的用例：', testcase.name)
         return APIResponse("测试任务已开始", status=status.HTTP_202_ACCEPTED)
         # except Exception as e:
