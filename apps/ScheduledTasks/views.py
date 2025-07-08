@@ -1,5 +1,5 @@
 # views.py
-from rest_framework import viewsets, status
+from rest_framework import viewsets
 from django_celery_beat.models import PeriodicTask, CrontabSchedule
 from .models import ScheduledTask
 from .serializers import ScheduledTaskSerializer
@@ -32,6 +32,9 @@ class ScheduledTaskViewSet(viewsets.ModelViewSet):
 
     def _create_or_update_periodic_task(self, task):
         cron_parts = task.cron.strip().split()
+        # 如果是跑冒烟，需要给用例增加一个tag：smoke
+        # if task.type == smoke:  testcase.objects.filter(smoke=true)
+
         if len(cron_parts) != 5:
             raise ValueError("Invalid cron expression")
 
@@ -45,16 +48,17 @@ class ScheduledTaskViewSet(viewsets.ModelViewSet):
 
         if task.task_type == "api":
             task_name = "testtasks.tasks.run_suite_task"
+            # 获取module下的用例，需要修改定时任务可以选择module
+            # cases = interface.objects.filter(module=task.module)
         else:
-            task_name = "ui_run_tasks.run_ui_suite_task"
-
+            task_name = "ScheduledTasks.tasks.schedule_ui_tasks.run_all_ui_test"
+            # cases = ui_case.objects.filter(module=task.module)
         PeriodicTask.objects.update_or_create(
             name=f"scheduled_task_{task.id}",
             defaults={
                 "crontab": schedule,
-                # "task": "testtasks.tasks.run_suite_task",
                 "task": task_name,
                 "enabled": task.enabled,
-                # "args": json.dumps([task.suite_id]),
+                # "args": json.dumps([cases]),
             }
         )

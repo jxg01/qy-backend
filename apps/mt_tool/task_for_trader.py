@@ -5,7 +5,7 @@ from celery.exceptions import SoftTimeLimitExceeded
 from .models import TaskRecord
 
 
-@shared_task(bind=True, soft_time_limit=3600)
+# @shared_task(bind=True, soft_time_limit=3600)
 def execute_parallel_task(self, thread_num, task_num, params, user_id):
     """ Celery任务：执行多线程操作 """
     # 更新任务状态为运行中

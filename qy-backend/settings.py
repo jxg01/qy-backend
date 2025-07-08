@@ -72,8 +72,6 @@ MIDDLEWARE = [
     'common.utils.LoginMiddleWare',
 ]
 
-ROOT_URLCONF = 'qy-backend.urls'
-
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
@@ -91,7 +89,8 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'qy-backend.wsgi.application'
-
+AUTH_USER_MODEL = 'users.UserProfile'
+ROOT_URLCONF = 'qy-backend.urls'
 
 # Database
 # https://docs.djangoproject.com/en/3.0/ref/settings/#databases
@@ -100,13 +99,12 @@ DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
         'NAME': 'easy_api',
-        'USER': 'root',
-        'PASSWORD': '12345678',
+        'USER': 'admin',
+        'PASSWORD': '123456',
         'HOST': '127.0.0.1',
         'PORT': '3306',
     }
 }
-
 
 # Password validation
 # https://docs.djangoproject.com/en/3.0/ref/settings/#auth-password-validators
@@ -129,33 +127,19 @@ AUTH_PASSWORD_VALIDATORS = [
 
 # Internationalization
 # https://docs.djangoproject.com/en/3.0/topics/i18n/
-
 # LANGUAGE_CODE = 'en-us'
 LANGUAGE_CODE = 'zh-hans'
-
-# TIME_ZONE = 'UTC'
-TIME_ZONE = 'Asia/Shanghai'
-
-USE_I18N = True
-
-USE_L10N = True
-
-# USE_TZ = True
-# 数据库存储时间，默认为UTC时间
 USE_TZ = False
+TIME_ZONE = 'Asia/Shanghai'
+USE_I18N = True
+USE_L10N = True
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/3.0/howto/static-files/
-
 STATIC_URL = '/static/'
-
 STATICFILES_DIRS = [os.path.join(BASE_DIR, '/static/')]
-
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
-
-
-AUTH_USER_MODEL = 'users.UserProfile'
 
 REST_FRAMEWORK = {
     # 'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
@@ -194,14 +178,17 @@ CORS_ALLOW_HEADERS = (
     'Pragma',
 )
 
-# redis配置
+# celery redis配置
 CELERY_BROKER_URL = 'redis://127.0.0.1:6379/0'
-CELERY_RESULT_BACKEND = 'redis://127.0.0.1:6379/0'
+CELERY_RESULT_BACKEND = 'redis://127.0.0.1:6379/1'
+CELERY_BEAT_SCHEDULER = "django_celery_beat.schedulers:DatabaseScheduler"
 # CELERY_RESULT_BACKEND = 'jango-db'
 CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
-CELERY_TIMEZONE = 'Asia/Shanghai'
+CELERY_TIMEZONE = "Asia/Shanghai"  # 必须与Django时区一致
+CELERY_ENABLE_UTC = False  # 禁用UTC时间转换
+DJANGO_CELERY_BEAT_TZ_AWARE = False
 
 LOGGING = {
     'version': 1,
