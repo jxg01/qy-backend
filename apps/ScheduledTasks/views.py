@@ -47,7 +47,7 @@ class ScheduledTaskViewSet(viewsets.ModelViewSet):
         )
 
         if task.task_type == "api":
-            task_name = "testtasks.tasks.run_suite_task"
+            task_name = "ScheduledTasks.tasks.schedule_ui_tasks.run_all_api_test"
             # 获取module下的用例，需要修改定时任务可以选择module
             # cases = interface.objects.filter(module=task.module)
         else:

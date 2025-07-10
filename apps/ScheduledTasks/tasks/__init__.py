@@ -1,1 +1,1 @@
-from . import schedule_ui_tasks
+from . import schedule_ui_tasks, schedule_api_tasks

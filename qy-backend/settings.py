@@ -124,16 +124,6 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
-
-# Internationalization
-# https://docs.djangoproject.com/en/3.0/topics/i18n/
-# LANGUAGE_CODE = 'en-us'
-LANGUAGE_CODE = 'zh-hans'
-USE_TZ = False
-TIME_ZONE = 'Asia/Shanghai'
-USE_I18N = True
-USE_L10N = True
-
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/3.0/howto/static-files/
 STATIC_URL = '/static/'
@@ -178,6 +168,16 @@ CORS_ALLOW_HEADERS = (
     'Pragma',
 )
 
+# Internationalization
+# https://docs.djangoproject.com/en/3.0/topics/i18n/
+# LANGUAGE_CODE = 'en-us'
+LANGUAGE_CODE = 'zh-hans'
+# 需要配置 为 True，保持数据库的时间为UTC，celery beat调度需要任务的时间为UTC
+USE_TZ = True
+TIME_ZONE = 'Asia/Shanghai'
+USE_I18N = True
+USE_L10N = True
+
 # celery redis配置
 CELERY_BROKER_URL = 'redis://127.0.0.1:6379/0'
 CELERY_RESULT_BACKEND = 'redis://127.0.0.1:6379/1'
@@ -188,7 +188,7 @@ CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TIMEZONE = "Asia/Shanghai"  # 必须与Django时区一致
 CELERY_ENABLE_UTC = False  # 禁用UTC时间转换
-DJANGO_CELERY_BEAT_TZ_AWARE = False
+DJANGO_CELERY_BEAT_TZ_AWARE = True
 
 LOGGING = {
     'version': 1,
