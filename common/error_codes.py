@@ -43,6 +43,9 @@ class ErrorCode(Enum):
     DB_NOT_EXISTS = (6008, "数据库未配置，请检查默认环境的数据库信息")
     SELECTED_CASES_ID_IS_EMPTY = (6008, "用例ID不能为空")
 
+    # cron
+    CRON_ERROR = (7001, "Cron 表达式格式错误")
+
     # 后续新增错误码只需在此添加
 
     def __init__(self, code: int, message: str):
