@@ -90,6 +90,8 @@ async def run_ui_case_tool(case_json, is_headless, browser_type):
     pre_result = []
     # 1. Pre-API (e.g., token retrieval)
     log.info('开始执行前置条件.......')
+    if not case_json.get('pre_apis', []):
+        log.info('没有前置条件，跳过前置接口调用......')
     for pre_api in case_json.get('pre_apis', []):
         result = await call_pre_api(pre_api, context)
         pre_result.append(result)
@@ -233,6 +235,8 @@ async def run_ui_case_tool(case_json, is_headless, browser_type):
     post_result = []
     # log.info(f'case_json => {case_json}')
     log.info(f'用例步骤执行完毕，准执行后置sql =========== {case_json.get("post_steps", [])}')
+    if not case_json.get('post_steps', []):
+        log.info('没有后置条件，跳过后置接口调用......')
     for sql_info in case_json.get('post_steps', []):
         log.info(f'sql info ===> {sql_info}')
         if sql_info.get('type') == 'sql':
@@ -253,7 +257,7 @@ async def run_ui_case_tool(case_json, is_headless, browser_type):
                 post_result.append(log_info)
 
             except Exception as e:
-                log_info = {'sql': sql, 'sql_result': e}
+                log_info = {'sql': sql, 'sql_result': str(e)}
                 post_result.append(log_info)
                 log.error(f"Error executing post_step: {sql_info}, Error: {str(e)}")
         else:

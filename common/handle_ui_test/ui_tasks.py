@@ -41,10 +41,14 @@ def run_ui_test_case(execution_id: int, browser_type: str, is_headless):
         execution.status = case_status
         execution.steps_log = logs
         execution.screenshot = screenshot
+        log.info('收集结果完成，准备提交数据库save.............')
         execution.save()
+        log.info('🚀 数据库save成功.............')
 
     except Exception as e:
         log.error(f'Ui Test Case Tasks Execute Error => {str(e)}')
         execution.status = 'failed'
+        log.error('执行失败，准备收集结果.............status == failed')
         execution.duration = round(time.time() - start_time, 3)
         execution.save()
+        log.error(f'保存执行结果为failed，准备结束任务............. status= {execution.status} execution id ={execution.id}')

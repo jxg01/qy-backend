@@ -9,7 +9,7 @@ log = logging.getLogger('django')
 
 
 class ScheduledTaskViewSet(viewsets.ModelViewSet):
-    queryset = ScheduledTask.objects.all()
+    queryset = ScheduledTask.objects.all().order_by('-id')
     serializer_class = ScheduledTaskSerializer
 
     def perform_create(self, serializer):

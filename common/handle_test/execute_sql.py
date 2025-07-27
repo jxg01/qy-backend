@@ -1,3 +1,5 @@
+import datetime
+import decimal
 from sqlalchemy import create_engine, text
 
 
@@ -23,7 +25,15 @@ def execute_sql_dynamic(db_env, sql, variables: dict = None):
                 # Get column information
                 columns = result.keys()
                 # Convert to a list of dictionaries
-                return [dict(zip(columns, row)) for row in result]
+
+                def convert_value(value):
+                    if isinstance(value, datetime.datetime):
+                        return value.strftime('%Y-%m-%d %H:%M:%S')
+                    elif isinstance(value, decimal.Decimal):
+                        return str(value)
+                    return value
+
+                return [dict(zip(columns, [convert_value(v) for v in row])) for row in result]
             else:
                 return {'status': 'success', 'affected_rows': result.rowcount}
     except Exception as e:
@@ -34,24 +44,24 @@ if __name__ == '__main__':
     # 示例数据库环境配置
     class MockDBEnv:
         db_type = 'mysql'
-        username = 'root'
-        password = '12345678'
+        username = 'admin'
+        password = '123456'
         host = '127.0.0.1'
         port = 3306
-        # name = 'easy_api'
-        name = 'test_db'
+        name = 'easy_api'
+        # name = 'test_db'
 
     # db_envs = MockDBEnv()
     print(MockDBEnv())
 
     db_envs = {'username': 'acc', 'name': 'easy_api', 'host': '127.0.0.1', 'port': 3306, 'password': '12345678'}
     # 示例 SQL 语句
-    # sql_query = "SELECT * FROM qy_case_execution WHERE id = {age};"
-    sql_update = "UPDATE users SET is_staff=1 WHERE id = {age};"
+    sql_query = "SELECT * FROM qy_user;"
+    # sql_update = "UPDATE users SET is_staff=1 WHERE id = {age};"
     variables1 = {'age': 1}
 
     # 执行 SQL
-    results = execute_sql_dynamic(db_envs, sql_update, variables1)
+    results = execute_sql_dynamic(MockDBEnv.__dict__, sql_query, variables1)
     print(results)
     if results:
         print(123)
