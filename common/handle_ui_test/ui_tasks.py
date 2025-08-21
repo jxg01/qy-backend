@@ -30,7 +30,7 @@ def run_ui_test_case(execution_id: int, browser_type: str, is_headless):
         # execution.status = 'running'
         execution.save()
         log.info('开始执行.............')
-        case_status, logs, screenshot = asyncio.run(
+        case_status, logs, screenshot, full_log = asyncio.run(
             run_ui_case_tool(case_json=case_json,
                              is_headless=is_headless,
                              browser_type=browser_type)

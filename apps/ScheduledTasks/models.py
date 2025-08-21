@@ -23,3 +23,30 @@ class ScheduledTask(models.Model):
         on_delete=models.CASCADE,
         related_name='%(class)s_updated'
     )
+
+
+class ScheduledTaskResult(models.Model):
+    schedule = models.ForeignKey(
+        ScheduledTask,
+        on_delete=models.CASCADE,
+        related_name='results'
+    )
+    start_time = models.DateTimeField(auto_now_add=True)
+    end_time = models.DateTimeField(null=True, blank=True)
+    duration = models.FloatField(default=0)  # 持续时间，单位秒
+    executor = models.CharField(max_length=100)
+    trigger = models.CharField(max_length=50, default="auto", help_text="manual or auto")  # 手动触发或定时触发
+    created_at = models.DateTimeField(auto_now_add=True)
+    status = models.CharField(
+        max_length=20,
+        choices=[
+            ("pending", "Pending"),
+            ("running", "Running"),
+            ("completed", "Completed"),
+            ("failed", "Failed")
+        ],
+        default="pending"
+    )
+
+    def __str__(self):
+        return f"Result for {self.schedule.name} at {self.start_time}"

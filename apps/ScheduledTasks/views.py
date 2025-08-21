@@ -4,6 +4,7 @@ from django_celery_beat.models import PeriodicTask, CrontabSchedule
 from .models import ScheduledTask
 from .serializers import ScheduledTaskSerializer
 import logging
+import json
 
 log = logging.getLogger('django')
 
@@ -60,7 +61,7 @@ class ScheduledTaskViewSet(viewsets.ModelViewSet):
             # 获取module下的用例，需要修改定时任务可以选择module
             # cases = interface.objects.filter(module=task.module)
         else:
-            task_name = "ScheduledTasks.tasks.schedule_ui_tasks.run_all_ui_test"
+            task_name = "ScheduledTasks.tasks.schedule_ui_tasks.execute_batch_ui_tests"
             # cases = ui_case.objects.filter(module=task.module)
         PeriodicTask.objects.update_or_create(
             name=f"scheduled_task_{task.id}",
@@ -68,6 +69,6 @@ class ScheduledTaskViewSet(viewsets.ModelViewSet):
                 "crontab": schedule,
                 "task": task_name,
                 "enabled": task.enabled,
-                # "args": json.dumps([cases]),
+                "args": json.dumps([task.id]),
             }
         )

@@ -1,6 +1,7 @@
 from django.db import models
 from projects.models import Projects
 from users.models import UserProfile
+from ScheduledTasks.models import ScheduledTaskResult
 
 
 class UiElement(models.Model):
@@ -71,12 +72,18 @@ class UiExecution(models.Model):
     )
     steps_log = models.JSONField(default={})
     screenshot = models.FileField(upload_to='screenshots/', null=True, blank=True)
-    duration = models.FloatField()
+    duration = models.FloatField(default=0)
     browser_info = models.CharField(max_length=128, blank=True, null=True)
 
     executed_at = models.DateTimeField(auto_now_add=True)
     executed_by = models.ForeignKey(UserProfile, on_delete=models.CASCADE)
-
+    scheduled_task_result = models.ForeignKey(
+        ScheduledTaskResult, 
+        on_delete=models.CASCADE, 
+        related_name='ui_executions',
+        null=True, 
+        blank=True
+    )
 
     class Meta:
         db_table = 'qy_ui_execution'

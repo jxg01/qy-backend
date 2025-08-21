@@ -249,11 +249,11 @@ LOGGING = {
             'level': 'DEBUG' if DEBUG else 'INFO',
             'propagate': False,
         },
-        'celery': {
-            'handlers': ['celery_file', 'console', 'file', 'error_file'],
-            'level': 'DEBUG',
-            'propagate': False,
-        },
+        # 'celery': {
+        #     'handlers': ['celery_file', 'console', 'file', 'error_file'],
+        #     'level': 'DEBUG',
+        #     'propagate': False,
+        # },
         'celery.task': {
             'handlers': ['celery_file'],
             'level': 'DEBUG',
@@ -265,6 +265,8 @@ LOGGING = {
 # 确保日志目录存在
 LOG_DIR = os.path.join(BASE_DIR, 'logs')
 os.makedirs(LOG_DIR, exist_ok=True)
+
+UI_TEST_BROWSER_TYPE = 'chromium'  # chrome | firefox
 
 # 使用：
 # from celery.utils.log import get_task_logger  # 使用Celery专用日志器 ｜ 获取带任务上下文的日志器
