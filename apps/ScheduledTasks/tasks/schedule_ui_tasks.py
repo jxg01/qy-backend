@@ -13,8 +13,9 @@ from django.utils import timezone
 from ui_case.models import UiTestCase, UiExecution
 from ScheduledTasks.models import ScheduledTaskResult, ScheduledTask
 from django.conf import settings
+from celery.utils.log import get_task_logger
 
-log = logging.getLogger('celery.task')
+log = get_task_logger(__name__)
 
 
 @shared_task

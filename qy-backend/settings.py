@@ -216,7 +216,7 @@ LOGGING = {
         'file': {  # 文件输出（生产环境）
             'level': 'INFO',
             'class': 'logging.handlers.TimedRotatingFileHandler',
-            'filename': os.path.join(BASE_DIR, 'logs/django.log'),
+            'filename': os.path.join(BASE_DIR, 'logs/django/django.log'),
             'when': 'midnight',  # 每天午夜切割日志
             'backupCount': 30,   # 保留30天日志
             'formatter': 'verbose',
@@ -225,18 +225,18 @@ LOGGING = {
         'error_file': {  # 错误专用日志
             'level': 'ERROR',
             'class': 'logging.FileHandler',
-            'filename': os.path.join(BASE_DIR, 'logs/errors.log'),
+            'filename': os.path.join(BASE_DIR, 'logs/django/errors.log'),
             'formatter': 'verbose',
         },
-        'celery_file': {  # Celery日志
-            'level': 'INFO',
-            'class': 'logging.handlers.TimedRotatingFileHandler',
-            'filename': os.path.join(BASE_DIR, 'logs/celery_tasks.log'),
-            'when': 'midnight',  # 每天午夜切割日志
-            'backupCount': 30,   # 保留30天日志
-            'formatter': 'celery_verbose',
-            'encoding': 'utf-8',
-        },
+        # 'celery_file': {  # Celery日志
+        #     'level': 'INFO',
+        #     'class': 'logging.handlers.TimedRotatingFileHandler',
+        #     'filename': os.path.join(BASE_DIR, 'logs/celery/celery_tasks.log'),
+        #     'when': 'midnight',  # 每天午夜切割日志
+        #     'backupCount': 30,   # 保留30天日志
+        #     'formatter': 'celery_verbose',
+        #     'encoding': 'utf-8',
+        # },
     },
     'loggers': {
         'django': {  # Django框架内置日志
@@ -250,21 +250,27 @@ LOGGING = {
             'propagate': False,
         },
         # 'celery': {
-        #     'handlers': ['celery_file', 'console', 'file', 'error_file'],
-        #     'level': 'DEBUG',
+        #     'handlers': ['celery_file', 'console'],
+        #     'level': 'INFO',
         #     'propagate': False,
         # },
-        'celery.task': {
-            'handlers': ['celery_file'],
-            'level': 'DEBUG',
-            'propagate': False,
-        }
+        # 'celery.task': {
+        #     'handlers': ['celery_file', 'console'],
+        #     'level': 'DEBUG',
+        #     'propagate': False,
+        # }
     },
 }
 
 # 确保日志目录存在
 LOG_DIR = os.path.join(BASE_DIR, 'logs')
 os.makedirs(LOG_DIR, exist_ok=True)
+# 确保celery日志目录存在
+CELERY_LOG_DIR = os.path.join(LOG_DIR, 'celery')
+os.makedirs(CELERY_LOG_DIR, exist_ok=True)
+# 确保django日志目录存在
+DJANGO_LOG_DIR = os.path.join(LOG_DIR, 'django')
+os.makedirs(DJANGO_LOG_DIR, exist_ok=True)
 
 UI_TEST_BROWSER_TYPE = 'chromium'  # chrome | firefox
 

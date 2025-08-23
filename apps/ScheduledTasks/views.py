@@ -1,8 +1,8 @@
 # views.py
 from rest_framework import viewsets
 from django_celery_beat.models import PeriodicTask, CrontabSchedule
-from .models import ScheduledTask
-from .serializers import ScheduledTaskSerializer
+from .models import ScheduledTask, ScheduledTaskResult
+from .serializers import ScheduledTaskSerializer, ScheduledTaskResultSerializer
 import logging
 import json
 
@@ -72,3 +72,14 @@ class ScheduledTaskViewSet(viewsets.ModelViewSet):
                 "args": json.dumps([task.id]),
             }
         )
+
+
+class ScheduledTaskResultViewSet(viewsets.ModelViewSet):
+    queryset = ScheduledTaskResult.objects.all().order_by('-id')
+    serializer_class = ScheduledTaskResultSerializer
+
+    def get_queryset(self):
+        schedule_id = self.request.query_params.get('schedule_id')
+        if schedule_id:
+            return self.queryset.filter(schedule_id=schedule_id)
+        return self.queryset

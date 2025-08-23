@@ -10,7 +10,6 @@ from playwright.async_api import async_playwright
 import time
 import re
 import json
-import logging
 import asyncio
 import httpx
 import traceback
@@ -20,9 +19,9 @@ from asgiref.sync import sync_to_async
 import jsonpath
 from typing import Dict, List, Any, Tuple, Optional
 from datetime import datetime
+from celery.utils.log import get_task_logger
 
-# 配置日志
-log = logging.getLogger('celery.task')
+log = get_task_logger(__name__)
 
 
 class UIExecutionEngine:
@@ -41,6 +40,7 @@ class UIExecutionEngine:
         self.main_results = []
         self.post_results = []
         self.execution_log = ""  # 执行日志
+        self.timeout = 30000  # 等待元素超时时间（毫秒）
 
     def _add_log(self, message: str, level: str = "INFO"):
         """添加带时间戳的日志到执行日志"""
@@ -231,7 +231,7 @@ class UIExecutionEngine:
                 text = step_filled["value"]
                 selector = step_filled['selector']
                 self._add_log(f"在元素 {selector} 中输入: {text}", "INFO")
-                await page.wait_for_selector(selector, state='visible', timeout=10000)
+                await page.wait_for_selector(selector, state='visible', timeout=self.timeout)
                 await page.fill(selector, text)
                 return {"step": step_filled, "status": "pass", "log": f"Input text '{text}' into element: {selector}"}
 
@@ -246,7 +246,7 @@ class UIExecutionEngine:
                 file_path = os.path.join(settings.MEDIA_ROOT, step_filled["filePath"])
                 selector = step_filled['selector']
                 self._add_log(f"上传文件: {file_path} 到元素: {selector}", "INFO")
-                await page.wait_for_selector(selector, state='visible', timeout=10000)
+                await page.wait_for_selector(selector, state='visible', timeout=self.timeout)
                 await page.set_input_files(selector, file_path)
                 return {"step": step_filled, "status": "pass",
                         "log": f"Uploaded file '{file_path}' to element: {selector}"}
@@ -254,7 +254,7 @@ class UIExecutionEngine:
             elif action == "click":
                 selector = step_filled['selector']
                 self._add_log(f"点击元素: {selector}", "INFO")
-                await page.wait_for_selector(selector, state='visible', timeout=10000)
+                await page.wait_for_selector(selector, state='visible', timeout=self.timeout)
                 await page.click(selector)
                 return {"step": step_filled, "status": "pass", "log": f"Clicked on element: {selector}"}
 
@@ -293,14 +293,14 @@ class UIExecutionEngine:
 
         try:
             if assert_type == "text":
-                await page.wait_for_selector(selector, state='visible', timeout=10000)
+                await page.wait_for_selector(selector, state='visible', timeout=self.timeout)
                 txt = await page.text_content(selector)
                 assert expect in txt, f"Expected '{expect}' in '{txt}'"
                 return {"step": step_filled, "status": "pass",
                         "log": f"assert type: {assert_type} | Expected '{expect}' in '{txt}'"}
 
             elif assert_type == "visible":
-                await page.wait_for_selector(selector, state='visible', timeout=10000)
+                await page.wait_for_selector(selector, state='visible', timeout=self.timeout)
                 is_visible = await page.is_visible(selector)
                 assert is_visible, f"Element '{selector}' is not visible"
                 return {"step": step_filled, "status": "pass",
@@ -313,7 +313,7 @@ class UIExecutionEngine:
                         "log": f"assert type: {assert_type} | Expected '{expect}' in URL '{current_url}'"}
 
             elif assert_type == "attribute":
-                await page.wait_for_selector(selector, state='visible', timeout=10000)
+                await page.wait_for_selector(selector, state='visible', timeout=self.timeout)
                 attr_value = await page.get_attribute(selector, step_filled["attribute"])
                 assert expect in attr_value, f"Expected '{expect}' in attribute '{attr_value}'"
                 return {"step": step_filled, "status": "pass",
