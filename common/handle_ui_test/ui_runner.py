@@ -272,7 +272,7 @@ class UIExecutionEngine:
 
             self.case_status = 'failed'
             self.screenshot_path = f"screenshots/step_{step_index + 1}_fail_{step.get('action', 'unknown')}_{int(time.time())}.png"
-            await page.screenshot(path=os.path.join(settings.MEDIA_ROOT, self.screenshot_path))
+            await page.screenshot(path=os.path.join(settings.MEDIA_ROOT, self.screenshot_path), timeout=60000)
             self._add_log(f"已保存失败截图: {self.screenshot_path}", "INFO")
 
             return {
@@ -334,7 +334,7 @@ class UIExecutionEngine:
 
             self.case_status = 'failed'
             self.screenshot_path = f"screenshots/assert_fail_{assert_type}_{int(time.time())}.png"
-            await page.screenshot(path=os.path.join(settings.MEDIA_ROOT, self.screenshot_path))
+            await page.screenshot(path=os.path.join(settings.MEDIA_ROOT, self.screenshot_path), timeout=60000)
             self._add_log(f"已保存断言失败截图: {self.screenshot_path}", "INFO")
 
             return {

@@ -172,6 +172,8 @@ class UiExecutionViewSet(viewsets.ModelViewSet):
         case_name = self.request.query_params.get('case_name')
         case_status = self.request.query_params.get('case_status')
 
+        self.queryset = self.queryset.filter(scheduled_task_result__isnull=True)
+
         if case_status:
             self.queryset = self.queryset.filter(status=case_status)
         if case_name:

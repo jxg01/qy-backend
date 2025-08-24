@@ -44,12 +44,13 @@ class ScheduledTaskResultSerializer(serializers.ModelSerializer):
     total = serializers.SerializerMethodField()
     passed = serializers.SerializerMethodField()
     failed = serializers.SerializerMethodField()
+    error = serializers.SerializerMethodField()
     success_rate = serializers.SerializerMethodField()
     test_cases_result = serializers.SerializerMethodField()
 
     class Meta:
         model = ScheduledTaskResult
-        fields = ['id', 'schedule', 'schedule_name', 'start_time', 'end_time', 'duration', 'executor',
+        fields = ['id', 'schedule', 'schedule_name', 'start_time', 'end_time', 'duration', 'executor', 'error',
                   'trigger', 'created_at', 'total', 'passed', 'failed', 'success_rate', 'status', 'test_cases_result']
 
     def get_total(self, obj):
@@ -73,14 +74,14 @@ class ScheduledTaskResultSerializer(serializers.ModelSerializer):
         )
         return failed_executions.count()
 
-    # def get_error(self, obj):
-    #     # 通过外键关系获取该调度任务结果相关的错误的UI执行记录
-    #     # 假设没有直接的error状态，暂时将failed视为error
-    #     error_executions = UiExecution.objects.filter(
-    #         scheduled_task_result=obj,
-    #         status='failed'
-    #     )
-    #     return error_executions.count()
+    def get_error(self, obj):
+        # 通过外键关系获取该调度任务结果相关的错误的UI执行记录
+        # 假设没有直接的error状态，暂时将failed视为error
+        error_executions = UiExecution.objects.filter(
+            scheduled_task_result=obj,
+            status='error'
+        )
+        return error_executions.count()
 
     def get_success_rate(self, obj):
         # 计算成功率
