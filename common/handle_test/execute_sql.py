@@ -1,6 +1,7 @@
 import datetime
 import decimal
 from sqlalchemy import create_engine, text
+from sqlalchemy.pool import QueuePool
 
 
 def get_db_conn_url(db_env):
@@ -16,7 +17,12 @@ def get_db_conn_url(db_env):
 def execute_sql_dynamic(db_env, sql, variables: dict = None):
     try:
         url = get_db_conn_url(db_env)
-        engine = create_engine(url)
+        # engine = create_engine(url)
+        engine = create_engine(url, poolclass=QueuePool,
+                               pool_size=5,
+                               max_overflow=10,
+                               pool_timeout=30,
+                               pool_recycle=3600)  # 1小时回收连接
         if variables:
             sql = sql.format(**variables)
         with engine.connect() as conn:
