@@ -10,6 +10,7 @@ class UserProfile(AbstractUser):
     # nick_name = models.CharField(max_length=30, null=True, verbose_name='昵称', help_text='昵称')
     # mobile = models.CharField(max_length=11, verbose_name='电话', help_text='电话')
     update_time = models.DateTimeField(null=True, auto_now=True)
+    password_changed_at = models.DateTimeField(auto_now=True)
     # last_login = models.DateTimeField(null=True)
     #
     # def __str__(self):

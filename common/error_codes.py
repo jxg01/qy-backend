@@ -19,6 +19,9 @@ class ErrorCode(Enum):
     USERNAME_EXISTS = (1001, "用户名称不能重复")
     EMAIL_EXISTS = (1002, "邮箱不能重复")
     DELETE_CURRENT_USER = (1003, "不能删除当前登录用户")
+    OLD_PASSWORD_ERROR = (1004, "旧密码错误")
+    INVALID_PARAMS = (1005, "无效参数")
+    PASSWORD_SAME = (1006, "新密码不能与旧密码相同")
     # projects
     PROJECT_NAME_EXISTS = (2001, "项目名称不能重复")
 

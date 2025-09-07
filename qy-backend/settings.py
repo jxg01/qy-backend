@@ -135,7 +135,8 @@ REST_FRAMEWORK = {
     # 'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     # 'PAGE_SIZE': 5,
     'DEFAULT_AUTHENTICATION_CLASSES': (
-        'rest_framework_simplejwt.authentication.JWTAuthentication',
+        # 'rest_framework_simplejwt.authentication.JWTAuthentication',
+        'common.CustomerJWT.CustomJWTAuthentication',
         # 调试界面，配置后才能登录
         'rest_framework.authentication.SessionAuthentication',
     ),

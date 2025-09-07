@@ -9,6 +9,11 @@ from common.error_codes import ErrorCode
 import logging
 from common.exceptions import BusinessException
 # from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework.decorators import action
+from django.contrib.auth.hashers import make_password
+from rest_framework_simplejwt.tokens import RefreshToken
+from django.utils import timezone
+
 
 logger = logging.Logger('users')
 
@@ -32,6 +37,41 @@ class UserViewSet(viewsets.ModelViewSet):
             raise BusinessException(ErrorCode.DELETE_CURRENT_USER)
         self.perform_destroy(instance)
         return APIResponse(status=status.HTTP_204_NO_CONTENT)
+
+    @action(detail=False, methods=['post'], url_path='change-password')
+    def change_password(self, request):
+        """
+        修改密码
+        {
+            "old_password": "123456",
+            "new_password": "112233"
+        }
+        """
+        user = request.user
+        old_password = request.data.get('old_password')
+        new_password = request.data.get('new_password')
+
+        # 验证参数
+        if not old_password or not new_password:
+            raise BusinessException(ErrorCode.INVALID_PARAMS)
+
+        # 验证旧密码
+        if not user.check_password(old_password):
+            raise BusinessException(ErrorCode.OLD_PASSWORD_ERROR)
+
+        # 验证新密码不能和旧密码相同
+        if old_password == new_password:
+            raise BusinessException(ErrorCode.PASSWORD_SAME)
+
+        # 设置新密码
+        user.password = make_password(new_password)
+        user.password_changed_at = timezone.now()
+        user.save()
+
+        # 使所有已存在的token失效
+        RefreshToken.for_user(user)
+
+        return APIResponse(data="密码修改成功")
 
 
 class UserRegistrationViewSet(mixins.CreateModelMixin, viewsets.GenericViewSet):
