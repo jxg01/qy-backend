@@ -1,11 +1,18 @@
 from django.db import models
 from users.models import UserProfile
+from projects.models import Projects
 
 
 class ScheduledTask(models.Model):
     TASK_TYPE_CHOICES = (
         ("api", "API 测试"),
         ("ui", "UI 测试"),
+    )
+    project = models.ForeignKey(
+        Projects,
+        on_delete=models.CASCADE,
+        related_name='scheduled_tasks',
+        verbose_name='所属项目'
     )
     task_type = models.CharField(max_length=10, choices=TASK_TYPE_CHOICES, default="api")
     name = models.CharField(max_length=100)

@@ -321,6 +321,7 @@ class ExecutionHistoryViewSet(viewsets.ModelViewSet):
         status = request.query_params.get('status')
         start_date = request.query_params.get('start_date')
         end_date = request.query_params.get('end_date')
+        project_id = request.query_params.get('project_id')  # 新增 project_id 参数
 
         # 准备套件执行查询集
         suite_qs = TestExecution.objects.select_related('suite', 'executed_by')
@@ -329,6 +330,11 @@ class ExecutionHistoryViewSet(viewsets.ModelViewSet):
         case_qs = CaseExecution.objects.select_related(
             'case', 'execution', 'execution__suite', 'execution__executed_by'
         ).filter(execution__isnull=True)
+
+        # 应用项目过滤
+        if project_id:
+            suite_qs = suite_qs.filter(suite__project_id=project_id)
+            case_qs = case_qs.filter(case__interface__module__project_id=project_id)
 
         # 应用类型过滤
         if exec_type == 'suite':

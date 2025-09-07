@@ -13,6 +13,12 @@ class ScheduledTaskViewSet(viewsets.ModelViewSet):
     queryset = ScheduledTask.objects.all().order_by('-id')
     serializer_class = ScheduledTaskSerializer
 
+    def get_queryset(self):
+        project_id = self.request.query_params.get('project_id')
+        if project_id:
+            return self.queryset.filter(project_id=project_id)
+        return self.queryset
+
     def perform_create(self, serializer):
         """
         POST /api/schedule/

@@ -171,6 +171,7 @@ class UiExecutionViewSet(viewsets.ModelViewSet):
         executed_by = self.request.query_params.get('executed_by')
         case_name = self.request.query_params.get('case_name')
         case_status = self.request.query_params.get('case_status')
+        project_id = self.request.query_params.get('project_id')  # Get project_id from query parameters
 
         self.queryset = self.queryset.filter(scheduled_task_result__isnull=True)
 
@@ -181,6 +182,9 @@ class UiExecutionViewSet(viewsets.ModelViewSet):
 
         if executed_by:
             self.queryset = self.queryset.filter(executed_by__username__icontains=executed_by)
+
+        if project_id:
+            self.queryset = self.queryset.filter(testcase__module_id__project_id=project_id)  # Filter by project_id
 
         return self.queryset
 

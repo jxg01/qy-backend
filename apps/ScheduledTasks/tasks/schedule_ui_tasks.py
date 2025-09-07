@@ -26,7 +26,7 @@ def execute_batch_ui_tests(task_id):
     # 1. 取任务 & 用例
     try:
         scheduled_task = ScheduledTask.objects.get(id=task_id)
-        test_cases = UiTestCase.objects.filter(enable=True)
+        test_cases = UiTestCase.objects.filter(enable=True, module__project=scheduled_task.project)
         if not test_cases.exists():
             log.info("没有启用的UI测试用例可执行")
             return "没有启用的UI测试用例可执行"
