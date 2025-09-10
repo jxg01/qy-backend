@@ -6,18 +6,18 @@ import django
 django.setup()
 
 from projects.models import ProjectEnvs
-from playwright.async_api import async_playwright
+from ui_case.models import UiElement
+from playwright.async_api import async_playwright, expect
 import time
 import re
 import json
 import asyncio
 import httpx
-import traceback
 from django.conf import settings
 from common.handle_test import execute_sql
 from asgiref.sync import sync_to_async
 import jsonpath
-from typing import Dict, List, Any, Tuple, Optional
+from typing import Dict, List, Any, Tuple
 from datetime import datetime
 from celery.utils.log import get_task_logger
 
@@ -119,13 +119,6 @@ class UIExecutionEngine:
         method = req_cfg.get('method', 'GET').upper()
         url = req_cfg['url']
 
-        # 提取域名信息（用于设置cookie）
-        if api_cfg.get('name') == 'token':
-            if 'http' in url:
-                context['domain'] = url.split('/')[2]
-            else:
-                context['domain'] = url.split('/')[0]
-
         headers = req_cfg.get('headers', {})
         data = req_cfg.get('body') if isinstance(req_cfg.get('body'), dict) else json.loads(req_cfg.get('body', '{}'))
         json_data = req_cfg.get('json')
@@ -180,31 +173,17 @@ class UIExecutionEngine:
 
         browser_context = await browser.new_context(viewport={"width": 1920, "height": 1080})
 
-        # 注入token（如果有）
-        if 'token' in self.context:
-            member_token = {
-                "access_token": self.context.get("token", ""),
-                "countDownModalShowExpire": int(time.time() * 1000) + 540000,
-                "expire": int(time.time() * 1000) + 540000,
-                "needShowExpireModal": "true",
-                "session_duration": 540000
-            }
-            await browser_context.add_init_script(
-                f"""window.localStorage.setItem("member_token", '{json.dumps(member_token)}');"""
-            )
-
-            # 设置cookie
-            cookie = {
-                'name': 'admin_token',
-                'value': str(self.context.get("token", "")),
-                'domain': self.context.get("domain", ""),
-                'path': '/'
-            }
-            await browser_context.add_cookies([cookie])
-            self._add_log("已设置认证token和cookie", "INFO")
-
         self._add_log("浏览器环境初始化完成", "INFO")
         return browser, browser_context
+
+    async def get_element_selector(self, element_id: int) -> str:
+        """Get element selector string from database"""
+        try:
+            element = await sync_to_async(UiElement.objects.values('locator_type', 'locator_value').get)(id=element_id)
+            return f"{element['locator_type']}={element['locator_value']}"
+        except UiElement.DoesNotExist:
+            self._add_log(f"Element ID {element_id} not found in database", "ERROR")
+            raise ValueError(f"Element ID {element_id} not found")
 
     async def execute_step(self, page, step: Dict, step_index: int) -> Dict:
         """执行单个测试步骤"""
@@ -215,6 +194,13 @@ class UIExecutionEngine:
             step_filled = await self.fill_vars(step, self.context)
             action = step_filled.get("action")
 
+            if 'element_id' in step_filled and type(step_filled['element_id']) == int:
+                selector = await self.get_element_selector(step_filled['element_id'])
+            elif 'element_id' in step_filled:
+                selector = step_filled['element_id']
+            else:
+                selector = None
+
             if action == "sleep":
                 seconds = float(step_filled["seconds"])
                 self._add_log(f"等待 {seconds} 秒", "INFO")
@@ -224,12 +210,12 @@ class UIExecutionEngine:
             elif action == "goto":
                 self._add_log(f"导航到: {step_filled['url']}", "INFO")
                 await page.goto(step_filled["url"])
-                await page.wait_for_load_state("networkidle")
+                await page.wait_for_load_state("domcontentloaded")
                 return {"step": step_filled, "status": "pass", "log": f"GOTO {step_filled['url']}"}
 
             elif action == "input":
                 text = step_filled["value"]
-                selector = step_filled['selector']
+                # selector = step_filled['selector']
                 self._add_log(f"在元素 {selector} 中输入: {text}", "INFO")
                 await page.wait_for_selector(selector, state='visible', timeout=self.timeout)
                 await page.fill(selector, text)
@@ -244,7 +230,7 @@ class UIExecutionEngine:
 
             elif action == "upload":
                 file_path = os.path.join(settings.MEDIA_ROOT, step_filled["filePath"])
-                selector = step_filled['selector']
+                # selector = step_filled['selector']
                 self._add_log(f"上传文件: {file_path} 到元素: {selector}", "INFO")
                 await page.wait_for_selector(selector, state='visible', timeout=self.timeout)
                 await page.set_input_files(selector, file_path)
@@ -252,7 +238,7 @@ class UIExecutionEngine:
                         "log": f"Uploaded file '{file_path}' to element: {selector}"}
 
             elif action == "click":
-                selector = step_filled['selector']
+                # selector = step_filled['selector']
                 self._add_log(f"点击元素: {selector}", "INFO")
                 await page.wait_for_selector(selector, state='visible', timeout=self.timeout)
                 await page.click(selector)
@@ -266,9 +252,7 @@ class UIExecutionEngine:
                 return {"step": step_filled, "status": "pass", "log": "Unknown action skipped"}
 
         except Exception as e:
-            # error_traceback = traceback.format_exc()
             self._add_log(f"步骤 {step_index + 1} 执行失败: {str(e)}", "ERROR")
-            # self._add_log(f"错误堆栈: {error_traceback}", "ERROR")
 
             self.case_status = 'failed'
             self.screenshot_path = f"screenshots/step_{step_index + 1}_fail_{step.get('action', 'unknown')}_{int(time.time())}.png"
@@ -284,65 +268,63 @@ class UIExecutionEngine:
             }
 
     async def execute_assertion(self, page, step_filled: Dict) -> Dict:
-        """执行断言操作"""
+        """Execute assertion using Playwright‘s expect()"""
         assert_type = step_filled["assert_type"]
-        selector = step_filled.get('selector', '')
-        expect = step_filled.get('expect', '')
+        # selector = step_filled.get('selector', '')
+        # Get selector if element_id is present
+        if 'element_id' in step_filled and type(step_filled['element_id']) == int:
+            selector = await self.get_element_selector(step_filled['element_id'])
+        elif 'element_id' in step_filled:
+            selector = step_filled['element_id']
+        else:
+            selector = None
+        expect_value = step_filled.get('expect', '').strip()
 
-        self._add_log(f"执行断言: {assert_type}, 选择器: {selector}, 期望: {expect}", "INFO")
+        self._add_log(f"Executing assertion: {assert_type}, Selector: {selector}, Expected: {expect_value}", "INFO")
 
         try:
             if assert_type == "text":
-                await page.wait_for_selector(selector, state='visible', timeout=self.timeout)
-                txt = await page.text_content(selector)
-                assert expect in txt, f"Expected '{expect}' in '{txt}'"
+                await expect(page.locator(selector)).to_have_text(expect_value, timeout=self.timeout)
                 return {"step": step_filled, "status": "pass",
-                        "log": f"assert type: {assert_type} | Expected '{expect}' in '{txt}'"}
+                        "log": f"assert type: {assert_type} | Expected text '{expect_value}' in element: {selector}"}
 
             elif assert_type == "visible":
-                await page.wait_for_selector(selector, state='visible', timeout=self.timeout)
-                is_visible = await page.is_visible(selector)
-                assert is_visible, f"Element '{selector}' is not visible"
+                await expect(page.locator(selector)).to_be_visible(timeout=self.timeout)
                 return {"step": step_filled, "status": "pass",
                         "log": f"assert type: {assert_type} | Element '{selector}' is visible"}
 
             elif assert_type == "url":
-                current_url = page.url
-                assert expect in current_url, f"Expected '{expect}' in URL '{current_url}'"
+                await expect(page).to_have_url(expect_value, timeout=self.timeout)
                 return {"step": step_filled, "status": "pass",
-                        "log": f"assert type: {assert_type} | Expected '{expect}' in URL '{current_url}'"}
+                        "log": f"assert type: {assert_type} | Expected URL '{expect_value}'"}
 
             elif assert_type == "attribute":
-                await page.wait_for_selector(selector, state='visible', timeout=self.timeout)
-                attr_value = await page.get_attribute(selector, step_filled["attribute"])
-                assert expect in attr_value, f"Expected '{expect}' in attribute '{attr_value}'"
+                attribute = step_filled["attribute"]
+                await expect(page.locator(selector)).to_have_attribute(attribute, expect_value, timeout=self.timeout)
                 return {"step": step_filled, "status": "pass",
-                        "log": f"assert type: {assert_type} | Expected '{expect}' in attribute '{attr_value}'"}
+                        "log": f"assert type: {assert_type} | Expected attribute '{attribute}' to have value '{expect_value}'"}
 
             elif assert_type == "title":
-                current_title = await page.title()
-                assert expect in current_title, f"Expected '{expect}' in title '{current_title}'"
+                await expect(page).to_have_title(expect_value, timeout=self.timeout)
                 return {"step": step_filled, "status": "pass",
-                        "log": f"assert type: {assert_type} | Expected '{expect}' in title '{current_title}'"}
+                        "log": f"assert type: {assert_type} | Expected title '{expect_value}'"}
 
             else:
-                raise ValueError(f"不支持的断言类型: {assert_type}")
+                raise ValueError(f"Unsupported assertion type: {assert_type}")
 
-        except AssertionError as e:
-            # error_traceback = traceback.format_exc()
-            self._add_log(f"断言失败: {str(e)}", "ERROR")
+        except Exception as e:
+            self._add_log(f"Assertion failed: {str(e)}", "ERROR")
 
             self.case_status = 'failed'
             self.screenshot_path = f"screenshots/assert_fail_{assert_type}_{int(time.time())}.png"
             await page.screenshot(path=os.path.join(settings.MEDIA_ROOT, self.screenshot_path), timeout=60000)
-            self._add_log(f"已保存断言失败截图: {self.screenshot_path}", "INFO")
+            self._add_log(f"Saved assertion failure screenshot: {self.screenshot_path}", "INFO")
 
             return {
                 "step": step_filled,
                 "status": "fail",
                 "error": str(e),
                 "screenshot": self.screenshot_path,
-                # "traceback": error_traceback
             }
 
     async def execute_test_steps(self, page, steps: List[Dict]) -> List[Dict]:
@@ -416,9 +398,7 @@ class UIExecutionEngine:
                     results.append({'type': step_type, 'error': f"不支持的步骤类型: {step_type}"})
 
             except Exception as e:
-                # error_traceback = traceback.format_exc()
                 self._add_log(f"后置步骤执行失败: {str(e)}", "ERROR")
-                # self._add_log(f"错误堆栈: {error_traceback}", "ERROR")
                 results.append({'type': step_type, 'error': str(e)})
 
         self._add_log("后置步骤执行完成", "INFO")
@@ -459,10 +439,7 @@ class UIExecutionEngine:
             return self.case_status, all_result, self.screenshot_path, self.execution_log
 
         except Exception as e:
-            # error_traceback = traceback.format_exc()
             self._add_log(f"测试用例执行异常: {str(e)}", "ERROR")
-            # self._add_log(f"错误堆栈: {error_traceback}", "ERROR")
-
             self.case_status = 'error'
 
             # 返回错误结果
@@ -471,7 +448,6 @@ class UIExecutionEngine:
                 'steps_result': self.main_results,
                 'post_steps_result': self.post_results,
                 'error': str(e),
-                # 'traceback': error_traceback
             }
 
             return self.case_status, error_result, self.screenshot_path, self.execution_log

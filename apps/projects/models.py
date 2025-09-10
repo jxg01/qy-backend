@@ -37,8 +37,8 @@ class GlobalVariable(models.Model):
         db_table = 'qy_global_variable'
         verbose_name_plural = verbose_name = '全局变量'
 
-    name = models.CharField(max_length=16, verbose_name='变量名称', help_text='变量名称')
-    value = models.CharField(max_length=16, verbose_name='变量值', help_text='变量值')
+    name = models.CharField(max_length=128, verbose_name='变量名称', help_text='变量名称')
+    value = models.CharField(max_length=128, verbose_name='变量值', help_text='变量值')
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="更新时间")
     created_by = models.ForeignKey(
