@@ -5,7 +5,7 @@ import django
 
 django.setup()
 
-from projects.models import ProjectEnvs
+from projects.models import ProjectEnvs, GlobalVariable, PythonCode
 from ui_case.models import UiElement
 from playwright.async_api import async_playwright, expect
 import time
@@ -31,6 +31,7 @@ class UIExecutionEngine:
         self.is_headless = is_headless
         self.browser_type = browser_type
         self.context = {}  # 变量上下文
+        self.python_code = ''
         self.test_start_time = 0
         self.test_name = ""
         self.test_description = ""
@@ -58,12 +59,71 @@ class UIExecutionEngine:
         elif level == "DEBUG":
             log.debug(message)
 
+    async def get_global_variables(self):
+        """获取所有全局变量"""
+        try:
+            # 使用sync_to_async装饰一个同步函数来获取变量
+            @sync_to_async
+            def get_vars():
+                return dict(GlobalVariable.objects.values_list('name', 'value'))
+
+            # global_vars = await get_vars()
+            self.context.update(await get_vars())
+            self._add_log(f"已加载全局变量: {list(self.context.keys())}", "INFO")
+        except Exception as e:
+            self._add_log(f"加载全局变量失败: {str(e)}", "ERROR")
+        # return global_vars
+
+    async def get_python_functions(self):
+        """获取 Python 函数代码"""
+        try:
+            @sync_to_async
+            def get_code():
+                return PythonCode.objects.first().python_code
+
+            python_code = await get_code()
+            self._add_log("已加载 Python 函数代码", "INFO")
+            return python_code
+        except Exception as e:
+            self._add_log(f"加载 Python 函数代码失败: {str(e)}", "ERROR")
+            return ""
+
     async def fill_vars(self, obj: Any, context: Dict) -> Any:
-        """填充变量到字符串、字典或列表中"""
-        pattern = re.compile(r"\$\{(\w+)\}")
+        """填充变量，支持函数调用和变量替换"""
+        pattern = re.compile(r"\$\{__(\w+)\((.*?)\)\}|\$\{(\w+)\}")
 
         if isinstance(obj, str):
-            return pattern.sub(lambda m: str(context.get(m.group(1), m.group(0))), obj)
+            original_value = obj
+
+            def replacement(match):
+                if match.group(1):  # 函数调用
+                    func_name = match.group(1)
+                    args = [arg.strip() for arg in match.group(2).split(',') if arg.strip()]
+                    try:
+                        # 执行函数
+                        namespace = {}
+                        exec(self.python_code, namespace)
+                        func = namespace.get(func_name)
+                        if not func:
+                            self._add_log(f"函数 {func_name} 未找到", "ERROR")
+                            return match.group(0)
+                        result = str(func(*args))
+                        self._add_log(f"函数替换: ${{{func_name}({','.join(args)})}} -> {result}", "INFO")
+                        return result
+                    except Exception as e:
+                        self._add_log(f"执行函数 {func_name} 失败: {str(e)}", "ERROR")
+                        return match.group(0)
+                else:  # 变量替换
+                    var_name = match.group(3)
+                    result = str(context.get(var_name, match.group(0)))
+                    if result != match.group(0):  # 只记录成功的变量替换
+                        self._add_log(f"变量替换: ${{{var_name}}} -> {result}", "INFO")
+                    return result
+
+            result = pattern.sub(replacement, obj)
+            if result != original_value:
+                self._add_log(f"完整替换: {original_value} -> {result}", "INFO")
+            return result
         elif isinstance(obj, dict):
             return {k: await self.fill_vars(v, context) for k, v in obj.items()}
         elif isinstance(obj, list):
@@ -409,6 +469,15 @@ class UIExecutionEngine:
         self.test_start_time = time.time()
 
         try:
+            # 初始化上下文变量，包含全局变量
+            # self.context = await self.get_global_variables()
+            await self.get_global_variables()
+            # 加载 Python 函数代码
+            self.python_code = await self.get_python_functions()
+            self._add_log("初始化 Python 函数代码完成", "INFO")
+
+            self._add_log("初始化全局变量完成。", "INFO")
+
             # 1. 执行前置API
             self.pre_results = await self.execute_pre_apis(case_json.get('pre_apis', []))
 
