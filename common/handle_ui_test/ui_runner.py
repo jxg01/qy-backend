@@ -1,8 +1,6 @@
 import os
-
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'qy-backend.settings')
 import django
-
 django.setup()
 
 from projects.models import ProjectEnvs, GlobalVariable, PythonCode
@@ -27,9 +25,10 @@ log = get_task_logger(__name__)
 class UIExecutionEngine:
     """UI测试执行引擎"""
 
-    def __init__(self, is_headless=True, browser_type='chromium'):
+    def __init__(self, is_headless=True, browser_type='chromium', storage_state_path=None):
         self.is_headless = is_headless
         self.browser_type = browser_type
+        self.storage_state_path = storage_state_path  # 存储状态文件路径
         self.context = {}  # 变量上下文
         self.python_code = ''
         self.test_start_time = 0
@@ -231,10 +230,70 @@ class UIExecutionEngine:
             args=["--start-maximized", "--window-size=1920,1080"]
         )
 
-        browser_context = await browser.new_context(viewport={"width": 1920, "height": 1080})
+        context_options = {
+            "viewport": {"width": 1920, "height": 1080}
+        }
 
+        # 只有当存储状态文件存在且不为空时才使用它
+        if self.storage_state_path and os.path.exists(self.storage_state_path):
+            try:
+                with open(self.storage_state_path, 'r', encoding='utf-8') as f:
+                    storage_content = f.read().strip()
+                    if storage_content:  # 检查文件内容是否为空
+                        storage_data = json.loads(storage_content)
+                        if storage_data.get('cookies') or storage_data.get('origins'):  # 验证存储状态的有效性
+                            context_options["storage_state"] = self.storage_state_path
+                            self._add_log(f"使用有效的存储状态创建浏览器上下文: {self.storage_state_path}", "INFO")
+                        else:
+                            self._add_log("存储状态文件格式无效，创建新的浏览器上下文", "WARNING")
+                    else:
+                        self._add_log("存储状态文件为空，创建新的浏览器上下文", "WARNING")
+            except (json.JSONDecodeError, IOError) as e:
+                self._add_log(f"读取存储状态文件失败: {str(e)}，创建新的浏览器上下文", "WARNING")
+        else:
+            self._add_log("创建新的浏览器上下文（无存储状态）", "INFO")
+
+        browser_context = await browser.new_context(**context_options)
         self._add_log("浏览器环境初始化完成", "INFO")
         return browser, browser_context
+
+    async def save_storage_state(self, browser_context, path):
+        """保存浏览器状态到文件"""
+        try:
+            # 首先检查文件和路径状态
+            if path and os.path.exists(path):
+                try:
+                    with open(path, 'r', encoding='utf-8') as f:
+                        content = f.read().strip()
+                        if content:  # 如果文件不为空
+                            storage_data = json.loads(content)
+                            if storage_data.get('cookies') or storage_data.get('origins'):
+                                self._add_log("存储状态文件已存在且有效，跳过保存", "INFO")
+                                return True
+                except (json.JSONDecodeError, IOError) as e:
+                    self._add_log(f"读取现有存储状态文件失败: {str(e)}", "WARNING")
+
+            # 获取当前的存储状态
+            storage_state = await browser_context.storage_state()
+
+            # 验证存储状态是否有效
+            if not (storage_state.get('cookies') or storage_state.get('origins')):
+                self._add_log("当前没有有效的存储状态需要保存", "WARNING")
+                return False
+
+            # 确保目标目录存在
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+
+            # 保存状态到文件
+            with open(path, 'w', encoding='utf-8') as f:
+                json.dump(storage_state, f, indent=2)
+
+            self._add_log(f"已成功保存浏览器状态到: {path}", "INFO")
+            return True
+
+        except Exception as e:
+            self._add_log(f"保存浏览器状态失败: {str(e)}", "ERROR")
+            return False
 
     async def get_element_selector(self, element_id: int) -> str:
         """Get element selector string from database"""
@@ -328,7 +387,7 @@ class UIExecutionEngine:
             }
 
     async def execute_assertion(self, page, step_filled: Dict) -> Dict:
-        """Execute assertion using Playwright‘s expect()"""
+        """Execute assertion using Playwright's expect()"""
         assert_type = step_filled["assert_type"]
         # selector = step_filled.get('selector', '')
         # Get selector if element_id is present
@@ -464,7 +523,7 @@ class UIExecutionEngine:
         self._add_log("后置步骤执行完成", "INFO")
         return results
 
-    async def run_test_case(self, case_json: Dict) -> Tuple[str, Dict, str, str]:
+    async def run_test_case(self, case_json: Dict, save_storage_state: bool = False) -> Tuple[str, Dict, str, str]:
         """执行完整的UI测试用例"""
         self.test_start_time = time.time()
 
@@ -487,6 +546,10 @@ class UIExecutionEngine:
                 page = await browser_context.new_page()
 
                 self.main_results = await self.execute_test_steps(page, case_json.get('steps', []))
+
+                # 如果需要保存浏览器状态
+                if save_storage_state and self.storage_state_path:
+                    await self.save_storage_state(browser_context, self.storage_state_path)
 
                 await browser.close()
                 self._add_log("浏览器已关闭", "INFO")
@@ -522,13 +585,14 @@ class UIExecutionEngine:
             return self.case_status, error_result, self.screenshot_path, self.execution_log
 
 
-async def run_ui_case_tool(case_json, is_headless=True, browser_type='chromium'):
+async def run_ui_case_tool(case_json, is_headless=True, browser_type='chromium', storage_state_path=None, save_storage_state=False):
     """执行UI测试用例的工具函数"""
     # 创建执行引擎实例
     engine = UIExecutionEngine(
         is_headless=is_headless,
-        browser_type=browser_type
+        browser_type=browser_type,
+        storage_state_path=storage_state_path
     )
 
     # 执行测试用例
-    return await engine.run_test_case(case_json=case_json,)
+    return await engine.run_test_case(case_json=case_json, save_storage_state=save_storage_state)

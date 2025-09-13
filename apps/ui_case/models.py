@@ -53,6 +53,14 @@ class UiTestCase(models.Model):
     steps = models.JSONField(default=list)  # 步骤为结构化JSON
     post_steps = models.JSONField(default=list)  # 后置步骤为结构化JSON
     enable = models.BooleanField(default=True)
+    login_case = models.ForeignKey(  # 新增字段，关联登录用例
+        'self',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='dependent_cases',
+        verbose_name='登录用例'
+    )
     created_by = models.ForeignKey(UserProfile, on_delete=models.CASCADE, related_name='created_cases')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

@@ -1,4 +1,3 @@
-# schedule_ui_tasks.py  —— 异常安全版
 import os
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'qy-backend.settings')
 import django
@@ -14,6 +13,8 @@ from ui_case.models import UiTestCase, UiExecution
 from ScheduledTasks.models import ScheduledTaskResult, ScheduledTask
 from django.conf import settings
 from celery.utils.log import get_task_logger
+import tempfile
+import json
 
 log = get_task_logger(__name__)
 
@@ -46,7 +47,14 @@ def execute_batch_ui_tests(task_id):
         log.error(f"创建调度任务结果失败: {str(e)}")
         return f"创建调度任务结果失败: {str(e)}"
 
-    # 3. 逐条用例执行
+    # 3. 创建临时目录用于存储上下文文件
+    temp_dir = tempfile.mkdtemp(prefix=f"ui_test_storage_{task_id}_")
+    log.info(f"创建临时目录: {temp_dir}")
+
+    # 4. 存储登录用例ID到文件路径的映射
+    login_case_storage_map = {}
+
+    # 5. 逐条用例执行
     for test_case in test_cases:
         log.info(f"开始执行测试用例: {test_case.name}")
         try:
@@ -57,17 +65,68 @@ def execute_batch_ui_tests(task_id):
                 scheduled_task_result=scheduled_task_result,
                 browser_info=settings.UI_TEST_BROWSER_TYPE if settings.UI_TEST_BROWSER_TYPE else 'chromium',
             )
+
             case_json = {
                 'pre_apis': test_case.pre_apis,
                 'steps': test_case.steps,
                 'post_steps': test_case.post_steps
             }
 
+            # 确定是否使用存储状态
+            storage_state_path = None
+            if test_case.login_case:
+                login_case_id = test_case.login_case.id
+
+                # 检查是否已有该登录用例的存储状态
+                if login_case_id not in login_case_storage_map:
+                    # 执行登录用例并保存存储状态
+                    log.info(f"执行登录用例获取存储状态: {test_case.login_case.name}")
+
+                    login_case_json = {
+                        'pre_apis': test_case.login_case.pre_apis,
+                        'steps': test_case.login_case.steps,
+                        'post_steps': test_case.login_case.post_steps
+                    }
+
+                    # 创建临时文件用于存储登录状态
+                    login_storage_file = tempfile.NamedTemporaryFile(
+                        mode='w', suffix='.json', dir=temp_dir, delete=False
+                    )
+                    login_storage_path = login_storage_file.name
+                    login_storage_file.close()
+
+                    # 执行登录用例并保存存储状态
+                    case_status, logs, screenshot, execution_log = asyncio.run(
+                        run_ui_case_tool(
+                            case_json=login_case_json,
+                            browser_type=settings.UI_TEST_BROWSER_TYPE,
+                            storage_state_path=login_storage_path,
+                            save_storage_state=True
+                        )
+                    )
+
+                    if case_status == 'passed':
+                        login_case_storage_map[login_case_id] = login_storage_path
+                        log.info(f"登录用例执行成功，存储状态已保存到: {login_storage_path}")
+                    else:
+                        log.error(f"登录用例执行失败，状态: {case_status}")
+                        # 登录用例执行失败，当前用例也标记为失败
+                        execution.status = 'failed'
+                        execution.steps_log = f"依赖的登录用例执行失败: {case_status}"
+                        execution.duration = round(time.time() - execution.executed_at.timestamp(), 3)
+                        execution.save()
+                        continue
+
+                # 使用登录用例的存储状态
+                storage_state_path = login_case_storage_map[login_case_id]
+                log.info(f"使用登录用例的存储状态: {storage_state_path}")
+
             # 真正运行
             case_status, logs, screenshot, execution_log = asyncio.run(
                 run_ui_case_tool(
                     case_json=case_json,
-                    browser_type=settings.UI_TEST_BROWSER_TYPE
+                    browser_type=settings.UI_TEST_BROWSER_TYPE,
+                    storage_state_path=storage_state_path
                 )
             )
             execution.status = case_status
@@ -77,7 +136,7 @@ def execute_batch_ui_tests(task_id):
             execution.save()
             log.info(f"用例 {test_case.name} 完成，状态: {case_status}")
 
-        except Exception as e:   # 捕获单条用例执行异常
+        except Exception as e:  # 捕获单条用例执行异常
             log.error(f"用例 {test_case.name} 执行异常: {str(e)}", exc_info=True)
             execution = UiExecution.objects.create(
                 testcase=test_case,
@@ -88,7 +147,15 @@ def execute_batch_ui_tests(task_id):
             )
             execution.save()
 
-    # 4. 更新顶层结果
+    # 6. 清理临时目录
+    try:
+        import shutil
+        shutil.rmtree(temp_dir)
+        log.info(f"已清理临时目录: {temp_dir}")
+    except Exception as e:
+        log.error(f"清理临时目录失败: {str(e)}")
+
+    # 7. 更新顶层结果
     try:
         scheduled_task_result.status = 'completed'
         scheduled_task_result.end_time = timezone.now()
