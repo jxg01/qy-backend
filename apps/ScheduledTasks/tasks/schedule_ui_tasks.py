@@ -20,7 +20,7 @@ log = get_task_logger('worker')
 
 
 @shared_task
-def execute_batch_ui_tests(task_id):
+def execute_batch_ui_tests(task_id, result_id=None):
     """批量执行所有启用的UI测试用例"""
     log.info(f"UI测试用例 === execute_batch_ui_tests start, task_id【{task_id}】")
 
@@ -30,22 +30,49 @@ def execute_batch_ui_tests(task_id):
         test_cases = UiTestCase.objects.filter(enable=True, module__project=scheduled_task.project)
         if not test_cases.exists():
             log.info("没有启用的UI测试用例可执行")
+            # 如果有result_id，更新状态为completed
+            if result_id:
+                try:
+                    result = ScheduledTaskResult.objects.get(id=result_id)
+                    result.status = 'completed'
+                    result.end_time = timezone.now()
+                    result.duration = round((timezone.now() - result.start_time).total_seconds(), 3)
+                    result.save()
+                except Exception as e:
+                    log.error(f"更新任务结果状态失败: {str(e)}")
             return "没有启用的UI测试用例可执行"
     except ScheduledTask.DoesNotExist:
         log.error(f"任务 ID {task_id} 不存在")
+        # 如果有result_id，更新状态为failed
+        if result_id:
+            try:
+                result = ScheduledTaskResult.objects.get(id=result_id)
+                result.status = 'failed'
+                result.end_time = timezone.now()
+                result.duration = round((timezone.now() - result.start_time).total_seconds(), 3)
+                result.save()
+            except Exception as e:
+                log.error(f"更新任务结果状态失败: {str(e)}")
         return f"任务 ID {task_id} 不存在"
 
-    # 2. 创建顶层任务结果
+    # 2. 获取或创建顶层任务结果
     try:
-        scheduled_task_result = ScheduledTaskResult.objects.create(
-            schedule=scheduled_task,
-            start_time=timezone.now(),
-            executor='System',
-            status='running',
-        )
+        if result_id:
+            # 使用传入的result_id对应的记录
+            scheduled_task_result = ScheduledTaskResult.objects.get(id=result_id)
+            log.info(f"使用已有的任务结果记录: {result_id}")
+        else:
+            # 定时任务自动触发时创建新记录
+            scheduled_task_result = ScheduledTaskResult.objects.create(
+                schedule=scheduled_task,
+                start_time=timezone.now(),
+                executor='System',
+                trigger='auto',  # 自动触发
+                status='running',
+            )
     except Exception as e:
-        log.error(f"创建调度任务结果失败: {str(e)}")
-        return f"创建调度任务结果失败: {str(e)}"
+        log.error(f"获取或创建调度任务结果失败: {str(e)}")
+        return f"获取或创建调度任务结果失败: {str(e)}"
 
     # 3. 创建临时目录用于存储上下文文件
     temp_dir = tempfile.mkdtemp(prefix=f"ui_test_storage_{task_id}_")
