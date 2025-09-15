@@ -13,8 +13,9 @@ from ui_case.models import UiExecution, UiTestCase
 import logging
 import time
 import tempfile
+from celery.utils.log import get_task_logger
 
-log = logging.getLogger('celery.task')
+log = get_task_logger('worker')
 
 
 @shared_task

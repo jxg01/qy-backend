@@ -16,7 +16,7 @@ from celery.utils.log import get_task_logger
 import tempfile
 import json
 
-log = get_task_logger(__name__)
+log = get_task_logger('worker')
 
 
 @shared_task

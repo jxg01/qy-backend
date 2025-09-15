@@ -19,7 +19,7 @@ from typing import Dict, List, Any, Tuple
 from datetime import datetime
 from celery.utils.log import get_task_logger
 
-log = get_task_logger(__name__)
+log = get_task_logger('worker')
 
 
 class UIExecutionEngine:

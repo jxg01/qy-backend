@@ -249,16 +249,7 @@ LOGGING = {
             'filename': os.path.join(BASE_DIR, 'logs/celery/celery-worker.log'),
             'when': 'midnight',  # 每天午夜切割日志
             'backupCount': 30,   # 保留30天日志
-            'formatter': 'celery_verbose',
-            'encoding': 'utf-8',
-        },
-        'celery_beat_file': {  # Celery Beat日志
-            'level': 'INFO',
-            'class': 'logging.handlers.TimedRotatingFileHandler',
-            'filename': os.path.join(BASE_DIR, 'logs/celery/celery-beat.log'),
-            'when': 'midnight',  # 每天午夜切割日志
-            'backupCount': 30,   # 保留30天日志
-            'formatter': 'celery_verbose',
+            'formatter': 'verbose',
             'encoding': 'utf-8',
         },
     },
@@ -273,22 +264,11 @@ LOGGING = {
             'level': 'DEBUG' if DEBUG else 'INFO',
             'propagate': False,
         },
-        'celery': {
-            'handlers': ['celery_worker_file', 'console'],
-            'level': 'INFO',
+        'worker': {  # 自定义应用日志
+            'handlers': ['console', 'celery_worker_file'],
+            'level': 'DEBUG' if DEBUG else 'INFO',
             'propagate': False,
         },
-        'celery.task': {
-            'handlers': ['celery_worker_file', 'console'],
-            'level': 'DEBUG',
-            'propagate': False,
-            'formatter': 'verbose',  # 使用不包含task_id的格式器，避免格式化错误
-        },
-        'celery.beat': {
-            'handlers': ['celery_beat_file', 'console'],
-            'level': 'INFO',
-            'propagate': False,
-        }
     },
 }
 logging.config.dictConfig(LOGGING)
