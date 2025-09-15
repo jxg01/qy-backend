@@ -10,10 +10,20 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/3.0/ref/settings/
 """
 
-import os
 import sys
-import datetime
 from datetime import timedelta
+from dotenv import load_dotenv
+import os
+import logging
+import logging.config
+
+# 加载环境变量 - 先尝试加载本地开发配置，再加载通用配置
+# 本地开发配置会覆盖通用配置中的同名变量
+dotenv_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), '.env.local')
+if os.path.exists(dotenv_path):
+    load_dotenv(dotenv_path)
+# 加载通用配置
+load_dotenv(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), '.env'))
 
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -98,11 +108,11 @@ ROOT_URLCONF = 'qy-backend.urls'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
-        'NAME': 'easy_api',
-        'USER': 'admin',
-        'PASSWORD': '123456',
-        'HOST': '127.0.0.1',
-        'PORT': '3306',
+        'NAME': os.getenv('DB_NAME', 'easy_api'),
+        'USER': os.getenv('DB_USER', 'admin'),
+        'PASSWORD': os.getenv('DB_PASSWORD', '123456'),
+        'HOST': os.getenv('DB_HOST', '127.0.0.1'),
+        'PORT': os.getenv('DB_PORT', '3306'),
     }
 }
 
@@ -180,8 +190,8 @@ USE_I18N = True
 USE_L10N = True
 
 # celery redis配置
-CELERY_BROKER_URL = 'redis://127.0.0.1:6379/0'
-CELERY_RESULT_BACKEND = 'redis://127.0.0.1:6379/1'
+CELERY_BROKER_URL = os.getenv('CELERY_BROKER_URL', 'redis://127.0.0.1:6379/0')
+CELERY_RESULT_BACKEND = os.getenv('CELERY_RESULT_BACKEND', 'redis://127.0.0.1:6379/1')
 CELERY_BEAT_SCHEDULER = "django_celery_beat.schedulers:DatabaseScheduler"
 # CELERY_RESULT_BACKEND = 'jango-db'
 CELERY_ACCEPT_CONTENT = ['json']
@@ -196,7 +206,7 @@ LOGGING = {
     'disable_existing_loggers': False,
     'formatters': {
         'verbose': {  # 详细格式（含时间、模块、行号）
-            'format': '{levelname} {asctime} {module}:{lineno} - {message}',
+            'format': '{levelname} {asctime}  {module}:{lineno} - {message}',
             'style': '{',
         },
         'simple': {  # 简洁格式
@@ -204,7 +214,11 @@ LOGGING = {
             'style': '{',
         },
         'celery_verbose': {     # Celery详细格式
-            'format': '[Celery] {levelname} {asctime} {task_id} {module}:{lineno} - {message}',
+            'format': '[Celery] {levelname} {asctime} {task_id:<10s} {module}:{lineno} - {message}',
+            'style': '{',
+        },
+        'celery_task_verbose': {  # 用于任务的详细格式（含task_id，但使用安全的格式化）
+            'format': '[Celery] {levelname} {asctime} {task_id:<10s} {module}:{lineno} - {message}',
             'style': '{',
         },
     },
@@ -229,15 +243,24 @@ LOGGING = {
             'filename': os.path.join(BASE_DIR, 'logs/django/errors.log'),
             'formatter': 'verbose',
         },
-        # 'celery_file': {  # Celery日志
-        #     'level': 'INFO',
-        #     'class': 'logging.handlers.TimedRotatingFileHandler',
-        #     'filename': os.path.join(BASE_DIR, 'logs/celery/celery_tasks.log'),
-        #     'when': 'midnight',  # 每天午夜切割日志
-        #     'backupCount': 30,   # 保留30天日志
-        #     'formatter': 'celery_verbose',
-        #     'encoding': 'utf-8',
-        # },
+        'celery_worker_file': {  # Celery Worker日志
+            'level': 'INFO',
+            'class': 'logging.handlers.TimedRotatingFileHandler',
+            'filename': os.path.join(BASE_DIR, 'logs/celery/celery-worker.log'),
+            'when': 'midnight',  # 每天午夜切割日志
+            'backupCount': 30,   # 保留30天日志
+            'formatter': 'celery_verbose',
+            'encoding': 'utf-8',
+        },
+        'celery_beat_file': {  # Celery Beat日志
+            'level': 'INFO',
+            'class': 'logging.handlers.TimedRotatingFileHandler',
+            'filename': os.path.join(BASE_DIR, 'logs/celery/celery-beat.log'),
+            'when': 'midnight',  # 每天午夜切割日志
+            'backupCount': 30,   # 保留30天日志
+            'formatter': 'celery_verbose',
+            'encoding': 'utf-8',
+        },
     },
     'loggers': {
         'django': {  # Django框架内置日志
@@ -250,18 +273,26 @@ LOGGING = {
             'level': 'DEBUG' if DEBUG else 'INFO',
             'propagate': False,
         },
-        # 'celery': {
-        #     'handlers': ['celery_file', 'console'],
-        #     'level': 'INFO',
-        #     'propagate': False,
-        # },
-        # 'celery.task': {
-        #     'handlers': ['celery_file', 'console'],
-        #     'level': 'DEBUG',
-        #     'propagate': False,
-        # }
+        'celery': {
+            'handlers': ['celery_worker_file', 'console'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'celery.task': {
+            'handlers': ['celery_worker_file', 'console'],
+            'level': 'DEBUG',
+            'propagate': False,
+            'formatter': 'verbose',  # 使用不包含task_id的格式器，避免格式化错误
+        },
+        'celery.beat': {
+            'handlers': ['celery_beat_file', 'console'],
+            'level': 'INFO',
+            'propagate': False,
+        }
     },
 }
+logging.config.dictConfig(LOGGING)
+
 
 # 确保日志目录存在
 LOG_DIR = os.path.join(BASE_DIR, 'logs')
