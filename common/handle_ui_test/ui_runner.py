@@ -151,14 +151,23 @@ class UIExecutionEngine:
                     raise e
 
     async def execute_pre_apis(self, pre_apis: List[Dict]) -> List[Dict]:
-        """执行前置API请求"""
+        """执行前置API/SQL"""
         self._add_log("开始执行前置条件", "INFO")
         results = []
 
         for pre_api in pre_apis:
             try:
-                result = await self.call_pre_api(pre_api, self.context)
-                results.append(result)
+                kind = (pre_api.get('type') or pre_api.get('name') or '').lower()
+                if kind == 'sql':
+                    sql = pre_api.get('sql') or ''
+                    db_env_id = pre_api.get('dbEnv') or pre_api.get('db_env') or pre_api.get('db') or pre_api.get('dbEnvId')
+                    extracts = pre_api.get('extracts')
+                    assigned, sql_result = await self.execute_sql_and_extract(sql, db_env_id, extracts)
+                    results.append({"request": f"SQL", "response": sql_result, "variables": self.context.copy()})
+                    self._add_log("前置SQL执行成功", "INFO")
+                else:
+                    result = await self.call_pre_api(pre_api, self.context)
+                    results.append(result)
                 self._add_log(f"前置API '{pre_api.get('name', '未命名')}' 执行成功", "INFO")
             except Exception as e:
                 self._add_log(f"前置API '{pre_api.get('name', '未命名')}' 执行失败: {str(e)}", "ERROR")
@@ -304,6 +313,8 @@ class UIExecutionEngine:
             self._add_log(f"Element ID {element_id} not found in database", "ERROR")
             raise ValueError(f"Element ID {element_id} not found")
 
+
+
     async def execute_step(self, page, step: Dict, step_index: int) -> Dict:
         """执行单个测试步骤"""
         self._add_log(f"执行步骤 {step_index + 1}: {step.get('description', step.get('action', '未知操作'))}", "INFO")
@@ -365,6 +376,13 @@ class UIExecutionEngine:
 
             elif action == "assert":
                 return await self.execute_assertion(page, step_filled)
+
+            elif action == "sql":
+                sql = step_filled.get("sql") or ""
+                db_env_id = step_filled.get("dbEnv") or step_filled.get("db_env") or step_filled.get("db") or step_filled.get("dbEnvId")
+                extracts = step_filled.get("extracts")
+                assigned, sql_result = await self.execute_sql_and_extract(sql, db_env_id, extracts)
+                return {"step": step_filled, "status": "pass", "log": "SQL executed", "result": sql_result, "variables": assigned}
 
             else:
                 self._add_log(f"未知操作: {action}", "WARNING")
@@ -477,6 +495,88 @@ class UIExecutionEngine:
             ).first
         )()
 
+    async def execute_sql_and_extract(self, sql: str, db_env_id: int, extracts=None):
+        """执行 SQL 并按 extracts 提取变量到 context。返回 (保存到 context 的变量映射, 原始结果)。
+        extracts 支持：
+          - 列表[str]: 直接按列名提取，变量名=列名；
+          - 列表[dict]: {varName: 'u_id', column: 'id', row: 0}，column 可省略，默认等于 varName；row 默认 0；
+          - 为空/缺省：若结果为 SELECT 且有第一行，默认把第一行的所有列放入 context。
+        """
+        # 变量替换
+        sql = (await self.fill_vars({'sql': sql}, self.context)).get('sql', sql) if hasattr(self, 'fill_vars') else sql
+
+        db_info = await self.get_db_info(db_env_id)
+        if not db_info:
+            raise ValueError(f"数据库环境ID {db_env_id} 不存在")
+
+        db_config = {
+            'name': db_info.get('db_config__name'),
+            'host': db_info.get('db_config__host'),
+            'port': db_info.get('db_config__port'),
+            'username': db_info.get('db_config__username'),
+            'password': db_info.get('db_config__password'),
+        }
+        self._add_log(f"数据库配置: {db_config['name']}@{db_config['host']}:{db_config['port']}", "INFO")
+        self._add_log(f"执行SQL: {sql}", "INFO")
+
+        sql_result = execute_sql.execute_sql_dynamic(db_config, sql)
+        # 失败场景：工具返回 {'status':'error', 'message':...}
+        if isinstance(sql_result, dict) and sql_result.get('status') == 'error':
+            raise RuntimeError(f"SQL执行失败: {sql_result.get('message')}")
+
+        assigned = {}
+
+        def _as_first_row(res):
+            if isinstance(res, list) and res and isinstance(res[0], dict):
+                return res[0]
+            return None
+
+        first_row = _as_first_row(sql_result)
+
+        if not extracts:
+            # 默认把第一行所有列放入 context（常见：select id,email from users limit 1）
+            if first_row:
+                for k, v in first_row.items():
+                    self.context[k] = v
+                    assigned[k] = v
+                    self._add_log(f"提取变量: {k} = {str(v)[:50]}{'...' if len(str(v))>50 else ''}", "INFO")
+        else:
+            # 规范化 extracts 列表
+            if isinstance(extracts, dict):
+                # 支持 {column: varName, ...}
+                norm = []
+                for col, var in extracts.items():
+                    norm.append({'varName': var, 'column': col})
+                extracts = norm
+            for ext in extracts:
+                if isinstance(ext, str):
+                    var_name = ext
+                    col = ext
+                    row_idx = 0
+                elif isinstance(ext, dict):
+                    var_name = ext.get('varName') or ext.get('name') or ext.get('var') or ext.get('key')
+                    col = ext.get('column') or ext.get('col') or ext.get('field') or var_name
+                    row_idx = int(ext.get('row', 0) or 0)
+                else:
+                    continue
+
+                value = None
+                if isinstance(sql_result, list) and len(sql_result) > row_idx and isinstance(sql_result[row_idx], dict):
+                    row = sql_result[row_idx]
+                    if col in row:
+                        value = row[col]
+                    elif len(row) == 1:
+                        # 单列查询时，允许未指定列名
+                        value = next(iter(row.values()))
+                # 赋值
+                if var_name:
+                    self.context[var_name] = value
+                    assigned[var_name] = value
+                    self._add_log(f"提取变量: {var_name} = {str(value)[:50]}{'...' if len(str(value))>50 else ''}", "INFO")
+
+        return assigned, sql_result
+
+
     async def execute_post_steps(self, post_steps: List[Dict]) -> List[Dict]:
         """执行后置步骤（SQL或API）"""
         self._add_log("开始执行后置步骤", "INFO")
@@ -489,28 +589,10 @@ class UIExecutionEngine:
             try:
                 if step_type == 'sql':
                     sql = step_info.get('sql')
-                    db_env_id = step_info.get('dbEnv')
-
-                    self._add_log(f"执行SQL: {sql}", "INFO")
-                    db_info = await self.get_db_info(db_env_id)
-
-                    if not db_info:
-                        raise ValueError(f"数据库环境ID {db_env_id} 不存在")
-
-                    db_config = {
-                        'name': db_info.get('db_config__name'),
-                        'host': db_info.get('db_config__host'),
-                        'port': db_info.get('db_config__port'),
-                        'username': db_info.get('db_config__username'),
-                        'password': db_info.get('db_config__password'),
-                    }
-
-                    self._add_log(f"数据库配置: {db_config['name']}@{db_config['host']}:{db_config['port']}", "INFO")
-                    sql_result = execute_sql.execute_sql_dynamic(db_config, sql)
-
-                    self._add_log(f"SQL执行结果: {str(sql_result)[:100]}{'...' if len(str(sql_result)) > 100 else ''}",
-                                  "INFO")
-                    results.append({'type': 'sql', 'sql': sql, 'result': sql_result})
+                    db_env_id = step_info.get('dbEnv') or step_info.get('db_env') or step_info.get('db') or step_info.get('dbEnvId')
+                    extracts = step_info.get('extracts')
+                    assigned, sql_result = await self.execute_sql_and_extract(sql, db_env_id, extracts)
+                    results.append({'type': 'sql', 'sql': sql, 'result': sql_result, 'variables': assigned})
 
                 else:
                     self._add_log(f"不支持的后置步骤类型: {step_type}", "WARNING")

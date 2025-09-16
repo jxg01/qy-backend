@@ -41,6 +41,8 @@ def execute_sql_dynamic(db_env, sql, variables: dict = None):
 
                 return [dict(zip(columns, [convert_value(v) for v in row])) for row in result]
             else:
+                # 对于非SELECT操作，提交事务
+                conn.commit()  # 添加这一行
                 return {'status': 'success', 'affected_rows': result.rowcount}
     except Exception as e:
         return {'status': 'error', 'message': str(e)}
