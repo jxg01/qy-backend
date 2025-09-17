@@ -18,6 +18,7 @@ import jsonpath
 from typing import Dict, List, Any, Tuple
 from datetime import datetime
 from celery.utils.log import get_task_logger
+import re
 
 log = get_task_logger('worker')
 
@@ -431,7 +432,9 @@ class UIExecutionEngine:
                         "log": f"assert type: {assert_type} | Element '{selector}' is visible"}
 
             elif assert_type == "url":
-                await expect(page).to_have_url(expect_value, timeout=self.timeout)
+                # await expect(page).to_have_url(expect_value, timeout=self.timeout)
+                await expect(page).to_have_url(re.compile(fr".*{expect_value}"), timeout=self.timeout)
+
                 return {"step": step_filled, "status": "pass",
                         "log": f"assert type: {assert_type} | Expected URL '{expect_value}'"}
 
@@ -442,7 +445,8 @@ class UIExecutionEngine:
                         "log": f"assert type: {assert_type} | Expected attribute '{attribute}' to have value '{expect_value}'"}
 
             elif assert_type == "title":
-                await expect(page).to_have_title(expect_value, timeout=self.timeout)
+                # await expect(page).to_have_title(expect_value, timeout=self.timeout)
+                await expect(page).to_have_title(re.compile(fr".*{expect_value}"), timeout=self.timeout)
                 return {"step": step_filled, "status": "pass",
                         "log": f"assert type: {assert_type} | Expected title '{expect_value}'"}
 

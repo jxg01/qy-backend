@@ -192,10 +192,10 @@ class PythonCodeSerialize(serializers.ModelSerializer):
         extra_kwargs = {
             'name': {
                 'min_length': 2,
-                'max_length': 16,
+                'max_length': 64,
                 'error_messages': {
                     'min_length': '变量名称至少2个字符',
-                    'max_length': '��量名称不能超过16个字符',
+                    'max_length': '变量名称不能超过64个字符',
                     'blank': '项目名称不能为空',
                 }
             }
