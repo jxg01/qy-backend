@@ -14,7 +14,8 @@ class UiElement(models.Model):
         ("id", "ID"),
         ("name", "NAME"),
         ("class", "CLASS"),
-        ("text", "TEXT")
+        ("text", "TEXT"),
+        ("data-testid", "DATA-TESTID"),
     ])
     locator_value = models.CharField(max_length=256)
     description = models.TextField(blank=True)

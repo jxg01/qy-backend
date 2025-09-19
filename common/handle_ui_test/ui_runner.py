@@ -314,7 +314,15 @@ class UIExecutionEngine:
             self._add_log(f"Element ID {element_id} not found in database", "ERROR")
             raise ValueError(f"Element ID {element_id} not found")
 
-
+    async def get_element_handle(self, page, selector: str):
+        """Convert selector string to appropriate Playwright locator"""
+        if selector.startswith('data-testid='):
+            # Extract the test ID value
+            test_id = selector.replace('data-testid=', '')
+            self._add_log(f"Using data-test-ID selector: {test_id}", "INFO")
+            return page.get_by_test_id(test_id)
+        else:
+            return page.locator(selector)
 
     async def execute_step(self, page, step: Dict, step_index: int) -> Dict:
         """执行单个测试步骤"""
@@ -332,11 +340,22 @@ class UIExecutionEngine:
             else:
                 selector = None
 
+            # Get element handle if selector exists
+            element = await self.get_element_handle(page, selector) if selector else None
+
             if action == "sleep":
                 seconds = float(step_filled["seconds"])
                 self._add_log(f"等待 {seconds} 秒", "INFO")
                 await asyncio.sleep(seconds)
                 return {"step": step_filled, "status": "pass", "log": f"Slept for {seconds} seconds"}
+
+            elif action == "wait_element":
+                # 显示等待
+                self._add_log(f"等待元素可见: {selector}", "INFO")
+                wait_time = int(step_filled.get("wait_time"))*1000  # 默认使用 self.timeout
+                await element.wait_for(state='visible', timeout=wait_time)
+                return {"step": step_filled, "status": "pass",
+                        "log": f"Element '{selector}' is now visible"}
 
             elif action == "goto":
                 self._add_log(f"导航到: {step_filled['url']}", "INFO")
@@ -348,8 +367,10 @@ class UIExecutionEngine:
                 text = step_filled["value"]
                 # selector = step_filled['selector']
                 self._add_log(f"在元素 {selector} 中输入: {text}", "INFO")
-                await page.wait_for_selector(selector, state='visible', timeout=self.timeout)
-                await page.fill(selector, text)
+                # await page.wait_for_selector(selector, state='visible', timeout=self.timeout)
+                # await page.fill(selector, text)
+                await element.wait_for(state='visible', timeout=self.timeout)
+                await element.fill(text)
                 return {"step": step_filled, "status": "pass", "log": f"Input text '{text}' into element: {selector}"}
 
             elif action == "execute_script":
@@ -363,16 +384,20 @@ class UIExecutionEngine:
                 file_path = os.path.join(settings.MEDIA_ROOT, step_filled["filePath"])
                 # selector = step_filled['selector']
                 self._add_log(f"上传文件: {file_path} 到元素: {selector}", "INFO")
-                await page.wait_for_selector(selector, state='visible', timeout=self.timeout)
-                await page.set_input_files(selector, file_path)
+                # await page.wait_for_selector(selector, state='visible', timeout=self.timeout)
+                # await page.set_input_files(selector, file_path)
+                await element.wait_for(state='visible', timeout=self.timeout)
+                await element.set_input_files(file_path)
                 return {"step": step_filled, "status": "pass",
                         "log": f"Uploaded file '{file_path}' to element: {selector}"}
 
             elif action == "click":
                 # selector = step_filled['selector']
                 self._add_log(f"点击元素: {selector}", "INFO")
-                await page.wait_for_selector(selector, state='visible', timeout=self.timeout)
-                await page.click(selector)
+                # await page.wait_for_selector(selector, state='visible', timeout=self.timeout)
+                # await page.click(selector)
+                await element.wait_for(state='visible', timeout=self.timeout)
+                await element.click()
                 return {"step": step_filled, "status": "pass", "log": f"Clicked on element: {selector}"}
 
             elif action == "assert":
@@ -421,15 +446,25 @@ class UIExecutionEngine:
         self._add_log(f"Executing assertion: {assert_type}, Selector: {selector}, Expected: {expect_value}", "INFO")
 
         try:
+            element = await self.get_element_handle(page, selector) if selector else None
+
             if assert_type == "text":
-                await expect(page.locator(selector)).to_have_text(expect_value, timeout=self.timeout)
+                # await expect(page.locator(selector)).to_have_text(expect_value, timeout=self.timeout)
+                await expect(element).to_have_text(expect_value, timeout=self.timeout)
                 return {"step": step_filled, "status": "pass",
                         "log": f"assert type: {assert_type} | Expected text '{expect_value}' in element: {selector}"}
 
             elif assert_type == "visible":
-                await expect(page.locator(selector)).to_be_visible(timeout=self.timeout)
+                # await expect(page.locator(selector)).to_be_visible(timeout=self.timeout)
+                await expect(element).to_be_visible(timeout=self.timeout)
                 return {"step": step_filled, "status": "pass",
                         "log": f"assert type: {assert_type} | Element '{selector}' is visible"}
+
+            elif assert_type == "exists":
+                # await expect(page.locator(selector)).to_have_count(1, timeout=self.timeout)
+                await expect(element).to_have_count(1, timeout=self.timeout)
+                return {"step": step_filled, "status": "pass",
+                        "log": f"assert type: {assert_type} | Element '{selector}' exists"}
 
             elif assert_type == "url":
                 # await expect(page).to_have_url(expect_value, timeout=self.timeout)
@@ -440,7 +475,13 @@ class UIExecutionEngine:
 
             elif assert_type == "attribute":
                 attribute = step_filled["attribute"]
-                await expect(page.locator(selector)).to_have_attribute(attribute, expect_value, timeout=self.timeout)
+                # await expect(page.locator(selector)).to_have_attribute(attribute, expect_value, timeout=self.timeout)
+                # element = await self.get_element_handle(page, selector) if selector else None
+                await expect(element).to_have_attribute(
+                    attribute,
+                    expect_value,
+                    timeout=self.timeout
+                )
                 return {"step": step_filled, "status": "pass",
                         "log": f"assert type: {assert_type} | Expected attribute '{attribute}' to have value '{expect_value}'"}
 
