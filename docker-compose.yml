@@ -1,0 +1,131 @@
+services:
+  qy-backend:
+    build: .
+    container_name: qy-backend-container
+    restart: always
+    volumes:
+      - .:/app
+      - ./staticfiles:/app/staticfiles
+      - ./media:/app/media
+      - ./logs:/app/logs  # 日志目录挂载
+    ports:
+      - "80:80"
+    depends_on:
+      - mysql
+      - redis
+#    env_file:
+#      - .env
+    environment:
+      - DJANGO_SETTINGS_MODULE=qy-backend.settings
+    networks:
+      - appnet
+
+  # MySQL数据库服务
+  mysql:
+    image: mysql:8.0
+    container_name: mysql8-container
+    # 针对Mac M1/M2芯片的兼容性设置
+    platform: linux/amd64
+    restart: always
+    environment:
+      # MySQL 8默认使用caching_sha2_password认证插件
+      MYSQL_ROOT_PASSWORD: 12345678
+      MYSQL_DATABASE: easy_api
+      MYSQL_USER: admin
+      MYSQL_PASSWORD: 123456
+      # 字符集设置
+      MYSQL_INITDB_ARGS: "--character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci"
+    ports:
+      # 端口映射，允许宿主机访问
+      - "33061:3306"
+      - "33060:33060"  # MySQL 8的X协议端口
+    volumes:
+      # 数据持久化挂载
+      - ./docker-data/mysql-data:/var/lib/mysql
+      # 配置文件挂载
+      - ./docker-data/mysql-conf:/etc/mysql/conf.d
+      # 初始化脚本目录
+      - ./docker-data/mysql-init:/docker-entrypoint-initdb.d
+    # 资源限制，防止过度占用Mac资源
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G
+    # Mac上的性能优化
+    command: --default-authentication-plugin=caching_sha2_password
+             --max_allowed_packet=64M
+             --innodb_buffer_pool_size=256M
+    networks:
+      - appnet
+
+
+  redis:
+    image: redis:6
+    volumes:
+      - ./docker-data/redis-data:/data
+    ports:
+      - "6380:6379"
+    networks:
+      - appnet
+
+  celery_worker:
+    build: .
+    command: celery -A qy-backend worker --loglevel=info
+    volumes:
+      - .:/app
+      - ./logs/celery:/app/logs/celery
+    depends_on:
+      - redis
+      - mysql
+    networks:
+      - appnet
+#    environment:
+#      - DJANGO_SETTINGS_MODULE=qy-backend.settings
+#      - DEBUG=${DEBUG}
+#      - SECRET_KEY=${SECRET_KEY}
+#      - DB_NAME=${DB_NAME}
+#      - DB_USER=${DB_USER}
+#      - DB_PASSWORD=${DB_PASSWORD}
+#      - DB_HOST=db
+#      - DB_PORT=${DB_PORT}
+#      - REDIS_HOST=redis
+#      - REDIS_PORT=${REDIS_PORT}
+#      - CELERY_BROKER_URL=redis://redis:${REDIS_PORT}/0
+#      - CELERY_RESULT_BACKEND=redis://redis:${REDIS_PORT}/1
+
+  celery_beat:
+    build: .
+    command: celery -A qy-backend beat --loglevel=info --logfile=/app/logs/celery/celery-beat.log
+    volumes:
+      - .:/app
+      - ./logs/celery:/app/logs/celery
+    depends_on:
+      - redis
+      - mysql
+    networks:
+      - appnet
+#    environment:
+#      - DJANGO_SETTINGS_MODULE=qy-backend.settings
+#      - DEBUG=${DEBUG}
+#      - SECRET_KEY=${SECRET_KEY}
+#      - DB_NAME=${DB_NAME}
+#      - DB_USER=${DB_USER}
+#      - DB_PASSWORD=${DB_PASSWORD}
+#      - DB_HOST=db
+#      - DB_PORT=${DB_PORT}
+#      - REDIS_HOST=redis
+#      - REDIS_PORT=${REDIS_PORT}
+#      - CELERY_BROKER_URL=redis://redis:${REDIS_PORT}/0
+#      - CELERY_RESULT_BACKEND=redis://redis:${REDIS_PORT}/1
+
+# 网络配置
+networks:
+  appnet:
+#    driver: bridge
+    external: true
+
+# 卷配置（持久化存储）
+#volumes:
+#  mysql-data:
+#    driver: local

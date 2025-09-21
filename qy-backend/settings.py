@@ -108,11 +108,11 @@ ROOT_URLCONF = 'qy-backend.urls'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
-        'NAME': os.getenv('DB_NAME', 'easy_api'),
-        'USER': os.getenv('DB_USER', 'admin'),
-        'PASSWORD': os.getenv('DB_PASSWORD', '123456'),
-        'HOST': os.getenv('DB_HOST', '127.0.0.1'),
-        'PORT': os.getenv('DB_PORT', '3306'),
+        'NAME': os.getenv('DB_NAME'),
+        'USER': os.getenv('DB_USER'),
+        'PASSWORD': os.getenv('DB_PASSWORD'),
+        'HOST': os.getenv('DB_HOST'),
+        'PORT': os.getenv('DB_PORT'),
     }
 }
 
@@ -137,7 +137,10 @@ AUTH_PASSWORD_VALIDATORS = [
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/3.0/howto/static-files/
 STATIC_URL = '/static/'
-STATICFILES_DIRS = [os.path.join(BASE_DIR, '/static/')]
+# 静态文件收集目录 - 用于生产环境
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+# 额外的静态文件目录 - 应用目录外的静态文件
+STATICFILES_DIRS = [os.path.join(BASE_DIR, 'static')]
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
@@ -265,7 +268,7 @@ LOGGING = {
             'propagate': False,
         },
         'worker': {  # 自定义应用日志
-            'handlers': ['console', 'celery_worker_file'],
+            'handlers': ['celery_worker_file'],
             'level': 'DEBUG' if DEBUG else 'INFO',
             'propagate': False,
         },
