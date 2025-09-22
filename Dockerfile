@@ -18,7 +18,7 @@ RUN apt-get update \
  && rm -rf /var/lib/apt/lists/*
 
 # 升级 pip 并安装 uwsgi
-RUN pip install --upgrade pip \
+RUN python -m pip install --upgrade pip \
  && pip install uwsgi
 
 # 安装 Python 依赖
@@ -47,9 +47,9 @@ EXPOSE 80
 
 # 执行数据库迁移
 COPY entrypoint.sh /entrypoint.sh
-COPY generate_env.sh /app/generate_env.sh
+# COPY generate_env.sh /app/generate_env.sh
 
-RUN chmod +x /entrypoint.sh /app/generate_env.sh
+RUN chmod +x /entrypoint.sh
 
 ENTRYPOINT ["/entrypoint.sh"]
 

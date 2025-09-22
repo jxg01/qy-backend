@@ -13,8 +13,8 @@ services:
     depends_on:
       - mysql
       - redis
-#    env_file:
-#      - .env
+    env_file:
+      - .env
     environment:
       - DJANGO_SETTINGS_MODULE=qy-backend.settings
     networks:

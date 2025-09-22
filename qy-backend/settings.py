@@ -204,6 +204,16 @@ CELERY_TIMEZONE = "Asia/Shanghai"  # 必须与Django时区一致
 CELERY_ENABLE_UTC = True
 # DJANGO_CELERY_BEAT_TZ_AWARE = True
 
+# 确保日志目录存在
+LOG_DIR = os.path.join(BASE_DIR, 'logs')
+os.makedirs(LOG_DIR, exist_ok=True)
+# 确保celery日志目录存在
+CELERY_LOG_DIR = os.path.join(LOG_DIR, 'celery')
+os.makedirs(CELERY_LOG_DIR, exist_ok=True)
+# 确保django日志目录存在
+DJANGO_LOG_DIR = os.path.join(LOG_DIR, 'django')
+os.makedirs(DJANGO_LOG_DIR, exist_ok=True)
+
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
@@ -276,18 +286,8 @@ LOGGING = {
 }
 logging.config.dictConfig(LOGGING)
 
-
-# 确保日志目录存在
-LOG_DIR = os.path.join(BASE_DIR, 'logs')
-os.makedirs(LOG_DIR, exist_ok=True)
-# 确保celery日志目录存在
-CELERY_LOG_DIR = os.path.join(LOG_DIR, 'celery')
-os.makedirs(CELERY_LOG_DIR, exist_ok=True)
-# 确保django日志目录存在
-DJANGO_LOG_DIR = os.path.join(LOG_DIR, 'django')
-os.makedirs(DJANGO_LOG_DIR, exist_ok=True)
-
-UI_TEST_BROWSER_TYPE = 'chromium'  # chrome | firefox
+# chrome | firefox
+UI_TEST_BROWSER_TYPE = os.getenv('UI_TEST_BROWSER_TYPE', 'webkit')
 
 # 使用：
 # from celery.utils.log import get_task_logger  # 使用Celery专用日志器 ｜ 获取带任务上下文的日志器

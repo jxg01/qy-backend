@@ -18,7 +18,7 @@ python manage.py makemigrations --noinput
 python manage.py migrate --noinput
 
 # 收集静态文件
-python manage.py collectstatic --
+python manage.py collectstatic --noinput
 
 # 创建超级用户
 #if [ -n "$DJANGO_SUPERUSER_USERNAME" ] && [ -n "$DJANGO_SUPERUSER_EMAIL" ] && [ -n "$DJANGO_SUPERUSER_PASSWORD" ]; then
