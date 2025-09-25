@@ -1,5 +1,5 @@
-from common.utils import APIResponse
 from rest_framework import viewsets, permissions, status
+from common.utils import APIResponse
 from ui_case.models import UiTestCase, UiExecution, UiElement, UiTestModule, UiTestFile
 from ui_case.serializers import (UiTestCaseSerializer, UiExecutionSerializer,
                                  UiElementSerializer, UiTestModuleSerializer,
@@ -75,18 +75,39 @@ class UiElementViewSet(viewsets.ModelViewSet):
         return APIResponse(serializer.data, status=status.HTTP_200_OK)
 
 
-
 class UiTestModuleViewSet(viewsets.ModelViewSet):
     queryset = UiTestModule.objects.all()
     serializer_class = UiTestModuleSerializer
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
+        # 检查是否需要返回包含测试用例的模块树形结构
+        with_cases = self.request.query_params.get('with_cases', 'false').lower() == 'true'
+
+        # 默认仅返回顶级模块（parent__isnull=True）
+        if self.action in ('partial_update', 'destroy', 'update', 'retrieve'):
+            # 如果是更新或删除操作，返回所有模块
+            queryset = UiTestModule.objects.all()
+        else:
+            queryset = UiTestModule.objects.filter(parent__isnull=True)
+
+        # 如果请求中指定了 project_id，返回该项目的模块
         project_id = self.request.query_params.get('project_id')
-        queryset = UiTestModule.objects.all().order_by('-created_at')
         if project_id:
-            queryset = queryset.filter(project_id=project_id)
-        return queryset
+            if self.action in ('partial_update', 'destroy', 'update', 'retrieve'):
+                queryset = queryset.filter(project_id=project_id)
+            else:
+                queryset = UiTestModule.objects.filter(project_id=project_id, parent__isnull=True)
+
+        # 使用prefetch_related预加载所有层级的子模块，提高性能
+        # 由于数据深度不多，直接使用select_related和prefetch_related即可满足需求
+        base_queryset = queryset.select_related('project').prefetch_related('children')
+
+        # 如果需要包含测试用例，则预加载测试用例
+        if with_cases:
+            return base_queryset.prefetch_related('children__uitestcase_set', 'uitestcase_set')
+
+        return base_queryset
 
     def perform_create(self, serializer):
         serializer.save(created_by=self.request.user, updated_by=self.request.user)

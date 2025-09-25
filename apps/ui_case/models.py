@@ -33,6 +33,7 @@ class UiElement(models.Model):
 
 class UiTestModule(models.Model):
     project = models.ForeignKey(Projects, on_delete=models.CASCADE)
+    parent = models.ForeignKey('self', on_delete=models.CASCADE, null=True, blank=True, related_name='children')
     name = models.CharField(max_length=128)
     created_by = models.ForeignKey(UserProfile, on_delete=models.CASCADE, related_name='created_modules')
     created_at = models.DateTimeField(auto_now_add=True)
@@ -43,7 +44,12 @@ class UiTestModule(models.Model):
         db_table = 'qy_ui_test_module'
         verbose_name_plural = verbose_name = 'UI测试模块'
         ordering = ['-created_at']
-
+        constraints = [
+            models.UniqueConstraint(
+                fields=['project', 'name', 'parent'],
+                name='unique_module_name_per_project_and_parent'
+            )
+        ]
 
 class UiTestCase(models.Model):
     # project = models.ForeignKey(Projects, on_delete=models.CASCADE)

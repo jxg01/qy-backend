@@ -40,7 +40,8 @@ class UiElementSerializer(serializers.ModelSerializer):
             return value
         if not value:
             raise BusinessException(ErrorCode.UI_ELEMENT_LOCATOR_VALUE_EMPTY)
-        if UiElement.objects.filter(locator_value__iexact=value, project=self.context['request'].data.get('project')).exists():
+        if UiElement.objects.filter(locator_value__iexact=value,
+                                    project=self.context['request'].data.get('project')).exists():
             raise BusinessException(ErrorCode.UI_ELEMENT_LOCATOR_EXISTS)
         return value
 
@@ -75,10 +76,20 @@ class UiTestModuleSerializer(serializers.ModelSerializer):
     created_at = serializers.DateTimeField(format='%Y-%m-%d %H:%M:%S', read_only=True)
     updated_at = serializers.DateTimeField(format='%Y-%m-%d %H:%M:%S', read_only=True)
     cases = UiTestCaseSerializer(source='uitestcase_set', many=True, read_only=True)
+    project_name = serializers.CharField(source='project.name', read_only=True)
+    parent_name = serializers.CharField(source='parent.name', read_only=True, allow_null=True)
+    children = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
         model = UiTestModule
         fields = '__all__'
+        extra_kwargs = {
+            'parent': {'required': False, 'allow_null': True}
+        }
+
+    def get_children(self, obj):
+        """直接递归获取当前模块的所有子模块"""
+        return UiTestModuleSerializer(obj.children.all(), many=True, context=self.context).data
 
     def validate_name(self, value):
         instance = self.instance
@@ -88,8 +99,57 @@ class UiTestModuleSerializer(serializers.ModelSerializer):
             return value
         if not value:
             raise BusinessException(ErrorCode.UI_ELEMENT_NAME_EMPTY)
-        if UiTestModule.objects.filter(name__iexact=value, project=self.context['request'].data.get('project')).exists():
+
+        # 获取项目ID和父模块ID
+        project_id = self.context['request'].data.get('project')
+        parent_id = self.context['request'].data.get('parent')
+
+        if not project_id:
+            if self.instance:
+                project_id = self.instance.project.id
+                if parent_id is None:
+                    parent_id = self.instance.parent.id if self.instance.parent else None
+            else:
+                raise BusinessException(ErrorCode.PROJECT_ID_MISSING)
+
+        # 检查同一项目和父模块下是否存在同名模块
+        queryset = UiTestModule.objects.filter(project_id=project_id, name__iexact=value)
+        if parent_id:
+            queryset = queryset.filter(parent_id=parent_id)
+        else:
+            queryset = queryset.filter(parent__isnull=True)
+
+        if self.instance:
+            queryset = queryset.exclude(id=self.instance.id)
+
+        if queryset.exists():
             raise BusinessException(ErrorCode.UI_ELEMENT_NAME_EXISTS)
+
+        return value
+
+    def validate_parent(self, value):
+        """验证父模块的有效性"""
+        if value:
+            project_id = self.context['request'].data.get('project')
+            if not project_id:
+                if self.instance:
+                    project_id = self.instance.project.id
+                else:
+                    raise BusinessException(ErrorCode.PROJECT_ID_MISSING)
+
+            # 确保父模块属于同一个项目
+            if value.project.id != int(project_id):
+                raise BusinessException(ErrorCode.PARENT_MODULE_NOT_IN_SAME_PROJECT)
+
+            # 防止循环引用
+            current_module = self.instance
+            if current_module:
+                ancestor = value
+                while ancestor:
+                    if ancestor.id == current_module.id:
+                        raise BusinessException(ErrorCode.CIRCULAR_REFERENCE_ERROR)
+                    ancestor = ancestor.parent
+
         return value
 
 
