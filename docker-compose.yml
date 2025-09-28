@@ -9,7 +9,7 @@ services:
       - ./media:/app/media
       - ./logs:/app/logs  # 日志目录挂载
     ports:
-      - "80:80"
+      - "8080:80"
     depends_on:
       - mysql
       - redis

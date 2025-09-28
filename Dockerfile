@@ -37,7 +37,9 @@ COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 # 创建需要的目录并赋予权限
 RUN mkdir -p /app/staticfiles /app/media /app/logs \
  && mkdir -p /var/lib/nginx /var/lib/nginx/body /run/nginx \
- && chown -R www-data:www-data /app /var/lib/nginx /run/nginx /var/log/nginx
+ && chown -R www-data:www-data /app /var/lib/nginx /run/nginx /var/log/nginx /app/staticfiles
+
+RUN chmod -R 755 /app/staticfiles
 
 # 收集静态文件
 RUN python manage.py collectstatic --noinput || true
