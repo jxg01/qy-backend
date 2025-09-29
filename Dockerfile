@@ -4,7 +4,7 @@ FROM python:3.10-slim
 # 设置环境变量
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
-ENV DJANGO_SETTINGS_MODULE=qy_backend.settings
+ENV DJANGO_SETTINGS_MODULE=qy-backend.settings
 
 # 设置工作目录
 WORKDIR /app
@@ -18,12 +18,12 @@ RUN apt-get update \
  && rm -rf /var/lib/apt/lists/*
 
 # 升级 pip 并安装 uwsgi
-RUN python -m pip install --upgrade pip \
+RUN python -m pip install -i https://pypi.tuna.tsinghua.edu.cn/simple --upgrade pip \
  && pip install uwsgi
 
 # 安装 Python 依赖
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install -i https://pypi.tuna.tsinghua.edu.cn/simple --no-cache-dir -r requirements.txt
 
 # 复制项目文件
 COPY . /app/
@@ -37,12 +37,10 @@ COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 # 创建需要的目录并赋予权限
 RUN mkdir -p /app/staticfiles /app/media /app/logs \
  && mkdir -p /var/lib/nginx /var/lib/nginx/body /run/nginx \
- && chown -R www-data:www-data /app /var/lib/nginx /run/nginx /var/log/nginx /app/staticfiles
-
-RUN chmod -R 755 /app/staticfiles
+ && chown -R www-data:www-data /app /var/lib/nginx /run/nginx /var/log/nginx
 
 # 收集静态文件
-RUN python manage.py collectstatic --noinput || true
+# RUN python manage.py collectstatic --noinput || true
 
 # 暴露端口
 EXPOSE 80

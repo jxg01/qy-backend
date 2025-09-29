@@ -13,8 +13,30 @@ set -e
 #
 #echo "Database is up!"
 
+# 等待数据库（简单重试）
+until python - <<'PY'
+import os, pymysql, time
+import sys
+from pymysql import Error
+# dsn = f"dbname={os.getenv('DB_NAME','easy_api')} user={os.getenv('DB_USER','root')} password={os.getenv('DB_PASSWORD','12345678')} host={os.getenv('DB_HOST','mysql')}"
+dsn = {"host": os.getenv('DB_HOST','mysql'), "port": int(os.getenv('DB_PORT',3306)), "user": os.getenv('DB_USER','root'), "password": os.getenv('DB_PASSWORD','12345678'), "database": os.getenv('DB_NAME','easy_api'), "charset": "utf8mb4", "cursorclass": pymysql.cursors.DictCursor}
+print("dsn => ", dsn)
+for i in range(30):
+    try:
+        # pymysql.connect(host='127.0.0.1',user='root',password='12345678',database='easy_api',port=3306,charset='utf8mb4',cursorclass=pymysql.cursors.DictCursor)
+        pymysql.connect(**dsn)
+        sys.exit(0)
+    except Error as e:
+        print(f"数据库连接失败: {e}")
+        time.sleep(1)
+sys.exit(1)
+PY
+do
+  echo "DB not ready, retrying..."
+done
+
 # 执行迁移
-python manage.py makemigrations --noinput
+# python manage.py makemigrations --noinput
 python manage.py migrate --noinput
 
 # 收集静态文件
