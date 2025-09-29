@@ -1,18 +1,6 @@
 #!/bin/bash
 set -e
 
-# 自动生成 .env 文件（如果不存在）
-#/app/generate_env.sh
-#bash /app/generate_env.sh
-
-# 等待数据库启动（可选，避免DB还没准备好就迁移）
-#echo "Waiting for database..."
-#until nc -z $DB_HOST $DB_PORT; do
-#  sleep 1
-#done
-#
-#echo "Database is up!"
-
 # 等待数据库（简单重试）
 until python - <<'PY'
 import os, pymysql, time
@@ -51,5 +39,4 @@ python manage.py collectstatic --noinput
 #fi
 
 # 执行原始CMD (supervisord)
-# exec "$@"
 exec /usr/bin/supervisord -c /etc/supervisor/conf.d/supervisord.conf
