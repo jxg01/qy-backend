@@ -1,5 +1,5 @@
 import os
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'qy-backend.settings')
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'qy_backend.settings')
 import django
 django.setup()
 

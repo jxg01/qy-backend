@@ -1,4 +1,4 @@
-# qy-backend
+# qy_backend
 后端项目
 
 # Django DRF 自动化测试平台 Docker部署指南
@@ -88,7 +88,7 @@
    在项目根目录下打开一个终端，执行以下命令：
 
    ```bash
-   celery -A qy-backend worker --loglevel=info
+   celery -A qy_backend worker --loglevel=info
    ```
 
    此命令会：
@@ -101,7 +101,7 @@
    在项目根目录下再打开一个终端，执行以下命令：
 
    ```bash
-   celery -A qy-backend beat --loglevel=info
+   celery -A qy_backend beat --loglevel=info
    ```
 
    此命令会：
@@ -126,15 +126,15 @@
 
    ```bash
    # 更多日志信息（DEBUG级别）
-   celery -A qy-backend worker --loglevel=debug
+   celery -A qy_backend worker --loglevel=debug
 
    # 更少日志信息（WARNING级别）
-   celery -A qy-backend worker --loglevel=warning
+   celery -A qy_backend worker --loglevel=warning
    ```
 
    #### Celery日志配置说明
 
-   项目已经在`qy-backend/celery.py`中添加了专门的日志配置代码：
+   项目已经在`qy_backend/celery.py`中添加了专门的日志配置代码：
    ```python
    # 配置 Celery 使用 Django 的日志设置
    # 这将确保 Celery 使用 settings.py 中配置的日志处理器

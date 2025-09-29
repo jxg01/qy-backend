@@ -6,6 +6,17 @@ until python - <<'PY'
 import os, pymysql, time
 import sys
 from pymysql import Error
+
+# 获取当前目录路径
+current_dir = os.getcwd()
+print(f"当前目录: {current_dir}")
+
+# 列出目录内容
+print("\n目录内容:")
+for item in os.listdir(current_dir):
+    item_path = os.path.join(current_dir, item)
+    print(f"- {'[目录]' if os.path.isdir(item_path) else '[文件]'} {item}")
+
 # dsn = f"dbname={os.getenv('DB_NAME','easy_api')} user={os.getenv('DB_USER','root')} password={os.getenv('DB_PASSWORD','12345678')} host={os.getenv('DB_HOST','mysql')}"
 dsn = {"host": os.getenv('DB_HOST','mysql'), "port": int(os.getenv('DB_PORT',3306)), "user": os.getenv('DB_USER','root'), "password": os.getenv('DB_PASSWORD','12345678'), "database": os.getenv('DB_NAME','easy_api'), "charset": "utf8mb4", "cursorclass": pymysql.cursors.DictCursor}
 print("dsn => ", dsn)

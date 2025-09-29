@@ -4,7 +4,7 @@ FROM python:3.10-slim
 # 设置环境变量
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
-ENV DJANGO_SETTINGS_MODULE=qy-backend.settings
+ENV DJANGO_SETTINGS_MODULE=qy_backend.settings
 
 # 设置工作目录
 WORKDIR /app
@@ -50,6 +50,7 @@ COPY entrypoint.sh /entrypoint.sh
 # COPY generate_env.sh /app/generate_env.sh
 
 RUN chmod +x /entrypoint.sh
+RUN chmod +x /app/start_celery.sh
 
 ENTRYPOINT ["/entrypoint.sh"]
 

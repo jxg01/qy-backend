@@ -3,7 +3,11 @@ from common.handle_test.assertions import ASSERTION_MAPPING, extract_variables
 from common.handle_test.request_executor import RequestExecutor
 
 import os
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'qy-backend.settings')
+import sys
+import time
+# 设置Django环境
+sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'qy_backend.settings')
 import django
 django.setup()
 
