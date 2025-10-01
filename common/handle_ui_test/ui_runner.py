@@ -236,20 +236,37 @@ class UIExecutionEngine:
         """设置浏览器上下文"""
         self._add_log("启动浏览器", "INFO")
 
-        # common_args = ["--window-size=1920,1080"]
-        if self.browser_type in ['chromium', 'firefox']:
-            common_args = [
+        # 为不同浏览器类型设置专门的启动参数
+        if self.browser_type == 'chromium':
+            browser_args = [
                 "--height=1080",
                 "--width=1920",
-                "--no-disable-gpu",
                 "--no-sandbox",
                 "--disable-setuid-sandbox",
+                "--disable-dev-shm-usage",
+                "--disable-gpu",
+            ]
+            if self.is_headless:
+                browser_args.append("--headless=new")
+        elif self.browser_type == 'firefox':
+            browser_args = [
+                "--height=1080",
+                "--width=1920",
+                "--no-sandbox",
+                "--disable-dev-shm-usage",
+            ]
+        elif self.browser_type == 'webkit':
+            # WebKit专用参数，解决Docker环境中的兼容性问题
+            browser_args = [
+                "--no-startup-window"
             ]
         else:
-            common_args = []
+            browser_args = []
+            self._add_log(f"未知浏览器类型: {self.browser_type}", "WARNING")
+
         browser = await getattr(playwright, self.browser_type).launch(
             headless=self.is_headless,
-            args=common_args
+            args=browser_args
         )
 
         context_options = {

@@ -4,6 +4,9 @@ services:
     image: backend:latest
     container_name: backend
     restart: always
+    volumes:
+      # 数据持久化挂载
+      - screenshots_volume:/app/qy_backend/media/screenshots
     env_file:
       - ./qy_backend/.env
     ports:
@@ -67,6 +70,8 @@ services:
     image: backend:latest
     container_name: celery
     restart: always
+    # 解决webkit 2 png截图报错问题
+    shm_size: '1gb'
     working_dir: /app/qy_backend
     env_file:
       - ./qy_backend/.env
@@ -75,6 +80,8 @@ services:
     volumes:
       - .:/app
       - ./logs/celery:/app/logs/celery
+      # 数据持久化挂载
+      - screenshots_volume:/app/qy_backend/media/screenshots
     depends_on:
       - redis
       - mysql
@@ -94,6 +101,8 @@ services:
     volumes:
       - .:/app
       - ./logs/celery:/app/logs/celery
+      # 数据持久化挂载
+      - screenshots_volume:/app/qy_backend/media/screenshots
     depends_on:
       - redis
       - mysql
@@ -101,6 +110,10 @@ services:
     networks:
       - appnet
 
+# 定义共享卷
+volumes:
+  screenshots_volume:
+    driver: local
 
 # 网络配置
 networks:
