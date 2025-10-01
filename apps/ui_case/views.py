@@ -1,3 +1,4 @@
+import django.conf
 from rest_framework import viewsets, permissions, status
 from common.utils import APIResponse
 from ui_case.models import UiTestCase, UiExecution, UiElement, UiTestModule, UiTestFile
@@ -139,7 +140,8 @@ class UiTestCaseViewSet(viewsets.ModelViewSet):
         接口参数：{"browser_info": "chromium"}
         """
         try:
-            browser_info = request.data.get('browser_type', 'chromium')
+            browser_info = request.data.get('browser_type', django.conf.settings.UI_TEST_BROWSER_TYPE)
+            # browser_info = django.conf.settings.UI_TEST_BROWSER_TYPE if not browser_info else browser_info
             headless = request.data.get('headless', True)
             testcase = self.get_object()
             execution = UiExecution.objects.create(

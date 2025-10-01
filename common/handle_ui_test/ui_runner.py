@@ -235,9 +235,21 @@ class UIExecutionEngine:
     async def setup_browser_context(self, playwright):
         """设置浏览器上下文"""
         self._add_log("启动浏览器", "INFO")
+
+        # common_args = ["--window-size=1920,1080"]
+        if self.browser_type in ['chromium', 'firefox']:
+            common_args = [
+                "--height=1080",
+                "--width=1920",
+                "--no-disable-gpu",
+                "--no-sandbox",
+                "--disable-setuid-sandbox",
+            ]
+        else:
+            common_args = []
         browser = await getattr(playwright, self.browser_type).launch(
             headless=self.is_headless,
-            args=["--start-maximized", "--window-size=1920,1080"]
+            args=common_args
         )
 
         context_options = {

@@ -1,12 +1,13 @@
 services:
   backend:
     build: ./qy_backend
+    image: backend:latest
     container_name: backend
     restart: always
     env_file:
       - ./qy_backend/.env
     ports:
-      - "8000:80"   # 后端暴露接口
+      - "8000:8000"   # 后端暴露接口
     depends_on:
       - mysql
       - redis
@@ -62,13 +63,15 @@ services:
       - appnet
 
   celery:
-    build: .
+    #build: ./qy_backend
+    image: backend:latest
     container_name: celery
     restart: always
+    working_dir: /app/qy_backend
     env_file:
-      - .env
-    working_dir: /app
-    command: celery -A qy_backend worker --loglevel=info
+      - ./qy_backend/.env
+    entrypoint: []
+    command: ["celery","-A","qy_backend.celery:app","worker","--loglevel=info"]
     volumes:
       - .:/app
       - ./logs/celery:/app/logs/celery
@@ -79,13 +82,15 @@ services:
       - appnet
 
   celery_beat:
-    build: .
+    #build: ./qy_backend
+    image: backend:latest
     container_name: celery-beat
     restart: always
+    working_dir: /app/qy_backend
     env_file:
-      - .env
-    working_dir: /app
-    command: celery -A qy_backend beat --loglevel=info --logfile=/app/logs/celery/celery-beat.log
+      - ./qy_backend/.env
+    entrypoint: []
+    command: ["celery","-A","qy_backend.celery:app","beat","--loglevel=info","--logfile=/app/logs/celery/celery-beat.log"]
     volumes:
       - .:/app
       - ./logs/celery:/app/logs/celery
