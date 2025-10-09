@@ -65,6 +65,7 @@ INSTALLED_APPS = [
     'drf_yasg',
     'django_celery_results',
     'django_celery_beat',      # Celery定时任务
+    'channels',  # Django Channels
 ]
 
 CORS_ORIGIN_ALLOW_ALL = True
@@ -97,6 +98,15 @@ TEMPLATES = [
         },
     },
 ]
+
+ASGI_APPLICATION = "qy_backend.asgi.application"
+
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels_redis.core.RedisChannelLayer",
+        "CONFIG": {"hosts": [os.getenv("CHANNEL_REDIS_URL")]},
+    }
+}
 
 WSGI_APPLICATION = 'qy_backend.wsgi.application'
 AUTH_USER_MODEL = 'users.UserProfile'

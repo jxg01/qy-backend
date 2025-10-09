@@ -11,6 +11,7 @@ from django.db.models import Q
 import logging
 from common.exceptions import BusinessException
 from common.error_codes import ErrorCode
+import uuid
 
 log = logging.getLogger('django')
 
@@ -139,6 +140,8 @@ class UiTestCaseViewSet(viewsets.ModelViewSet):
         """
         接口参数：{"browser_info": "chromium"}
         """
+        run_id = str(uuid.uuid4())
+        log.info(f'生成的Run ID: {run_id}')
         try:
             browser_info = request.data.get('browser_type', django.conf.settings.UI_TEST_BROWSER_TYPE)
             # browser_info = django.conf.settings.UI_TEST_BROWSER_TYPE if not browser_info else browser_info
@@ -148,8 +151,11 @@ class UiTestCaseViewSet(viewsets.ModelViewSet):
                 testcase=testcase, status='running', steps_log='', screenshot='',
                 duration=0, browser_info=browser_info, executed_by=request.user
             )
-            run_ui_test_case.delay(execution.id, browser_info, is_headless=headless)
-            return APIResponse("测试任务已开始", status=status.HTTP_202_ACCEPTED)
+            run_ui_test_case.delay(execution.id, browser_info, headless, run_id)
+            return APIResponse({
+                "message": "测试任务已开始",
+                "run_id": run_id
+            }, status=status.HTTP_202_ACCEPTED)
         except Exception as e:
             log.info(f'失败的任务：{e}')
             return APIResponse(str(e), status=status.HTTP_400_BAD_REQUEST)

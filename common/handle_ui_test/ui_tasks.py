@@ -19,7 +19,7 @@ log = get_task_logger('worker')
 
 
 @shared_task
-def run_ui_test_case(execution_id: int, browser_type: str, is_headless):
+def run_ui_test_case(execution_id: int, browser_type: str, is_headless, run_id: str):
     start_time = time.time()
     execution = UiExecution.objects.get(id=execution_id)
     try:
@@ -60,7 +60,8 @@ def run_ui_test_case(execution_id: int, browser_type: str, is_headless):
                     is_headless=is_headless,
                     browser_type=browser_type,
                     storage_state_path=storage_state_path,
-                    save_storage_state=True
+                    save_storage_state=True,
+                    run_id=run_id
                 )
             )
             log.info(f"登录用例执行状态: {login_status}")
@@ -80,7 +81,8 @@ def run_ui_test_case(execution_id: int, browser_type: str, is_headless):
                 case_json=case_json,
                 is_headless=is_headless,
                 browser_type=browser_type,
-                storage_state_path=storage_state_path
+                storage_state_path=storage_state_path,
+                run_id=run_id
             )
         )
         log.info('执行完成，准备收集结果.............')

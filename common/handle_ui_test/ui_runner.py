@@ -19,6 +19,8 @@ from typing import Dict, List, Any, Tuple
 from datetime import datetime
 from celery.utils.log import get_task_logger
 import re
+from ui_case.live import aemit_run_event
+import base64
 
 log = get_task_logger('worker')
 
@@ -26,7 +28,7 @@ log = get_task_logger('worker')
 class UIExecutionEngine:
     """UI测试执行引擎"""
 
-    def __init__(self, is_headless=True, browser_type='chromium', storage_state_path=None):
+    def __init__(self, run_id, is_headless=True, browser_type='chromium', storage_state_path=None):
         self.is_headless = is_headless
         self.browser_type = browser_type
         self.storage_state_path = storage_state_path  # 存储状态文件路径
@@ -42,6 +44,13 @@ class UIExecutionEngine:
         self.post_results = []
         self.execution_log = ""  # 执行日志
         self.timeout = 30000  # 等待元素超时时间（毫秒）
+        self.run_id = run_id
+        self._stream_task = None
+        self._stream_stop = None
+        # 推送间隔，默认 0.5 秒；可通过环境变量调整
+        self.stream_interval = float(os.getenv("RUN_STREAM_INTERVAL", "0.5"))
+        # 是否开启固定间隔推送（1/true 开启，0/false 关闭）
+        self.stream_enabled = os.getenv("RUN_STREAM_ENABLED", "1").lower() not in ("0", "false", "no")
 
     def _add_log(self, message: str, level: str = "INFO"):
         """添加带时间戳的日志到执行日志"""
@@ -58,6 +67,58 @@ class UIExecutionEngine:
             log.error(message)
         elif level == "DEBUG":
             log.debug(message)
+
+    async def _stream_loop(self, page):
+        """固定间隔推送截图（base64）。失败时记录日志但不打断主流程。"""
+        # 避免并发调用（守护任务）
+        try:
+            while self._stream_stop and not self._stream_stop.is_set():
+                try:
+                    # 截一张小图：JPEG、降低质量，减少 WS 负载
+                    buf = await page.screenshot(
+                        type="jpeg", quality=60, full_page=False
+                    )
+                    b64 = base64.b64encode(buf).decode()
+                    # 前端已兼容 frame/img_b64
+                    await aemit_run_event(self.run_id, {
+                        "type": "frame",
+                        "ts": int(time.time() * 1000),
+                        "img_b64": "data:image/jpeg;base64," + b64
+                    })
+                except Exception as e:
+                    # 大概率是页面跳转/关闭期间的瞬时错误；降到 DEBUG 即可
+                    self._add_log(f"固定间隔截图推送失败: {e}", "DEBUG")
+                # 间隔
+                await asyncio.sleep(max(0.05, self.stream_interval))
+        finally:
+            self._add_log("固定间隔截图推送任务已结束", "DEBUG")
+
+    async def start_stream(self, page):
+        """启动固定间隔推送"""
+        if not self.stream_enabled:
+            return
+        # 已在推送就不重复启动
+        if self._stream_task is not None:
+            return
+        self._stream_stop = asyncio.Event()
+        # 后台守护任务
+        self._stream_task = asyncio.create_task(self._stream_loop(page))
+        self._add_log(f"已启动固定间隔截图推送，interval={self.stream_interval}s", "INFO")
+
+    async def stop_stream(self):
+        """停止固定间隔推送"""
+        if not self._stream_task:
+            return
+        try:
+            self._stream_stop.set()
+            # 给任务一个短窗口收尾
+            try:
+                await asyncio.wait_for(self._stream_task, timeout=2.0)
+            except asyncio.TimeoutError:
+                self._add_log("截图推送任务超时，强制结束", "WARNING")
+        finally:
+            self._stream_task = None
+            self._stream_stop = None
 
     async def get_global_variables(self):
         """获取所有全局变量"""
@@ -701,14 +762,14 @@ class UIExecutionEngine:
                 browser, browser_context = await self.setup_browser_context(p)
                 page = await browser_context.new_page()
 
+                # ★ 开始固定间隔推送
+                await self.start_stream(page)
+
                 self.main_results = await self.execute_test_steps(page, case_json.get('steps', []))
 
                 # 如果需要保存浏览器状态
                 if save_storage_state and self.storage_state_path:
                     await self.save_storage_state(browser_context, self.storage_state_path)
-
-                await browser.close()
-                self._add_log("浏览器已关闭", "INFO")
 
             # 3. 执行后置步骤
             self.post_results = await self.execute_post_steps(case_json.get('post_steps', []))
@@ -739,15 +800,22 @@ class UIExecutionEngine:
             }
 
             return self.case_status, error_result, self.screenshot_path, self.execution_log
+        finally:
+            # ★ 停止固定间隔推送
+            await self.stop_stream()
+            self._add_log("测试用例执行结束，资源已清理", "INFO")
+            await browser.close()
+            self._add_log("浏览器已关闭", "INFO")
 
 
-async def run_ui_case_tool(case_json, is_headless=True, browser_type='chromium', storage_state_path=None, save_storage_state=False):
+async def run_ui_case_tool(case_json, run_id=None, is_headless=True, browser_type='chromium', storage_state_path=None, save_storage_state=False):
     """执行UI测试用例的工具函数"""
     # 创建执行引擎实例
     engine = UIExecutionEngine(
+        run_id=run_id,
         is_headless=is_headless,
         browser_type=browser_type,
-        storage_state_path=storage_state_path
+        storage_state_path=storage_state_path,
     )
 
     # 执行测试用例

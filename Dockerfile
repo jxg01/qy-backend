@@ -20,6 +20,9 @@ RUN apt-get update \
 # 升级 pip
 RUN python -m pip install -i https://pypi.tuna.tsinghua.edu.cn/simple --upgrade pip
 
+# 安装 uvicorn,支持ws
+# RUN pip install uvicorn==0.37.0
+
 # 安装 Python 依赖
 COPY requirements.txt .
 RUN pip install -i https://pypi.tuna.tsinghua.edu.cn/simple --no-cache-dir -r requirements.txt
