@@ -51,6 +51,7 @@ class UiTestModule(models.Model):
             )
         ]
 
+
 class UiTestCase(models.Model):
     # project = models.ForeignKey(Projects, on_delete=models.CASCADE)
     module = models.ForeignKey(UiTestModule, on_delete=models.CASCADE)
@@ -76,7 +77,7 @@ class UiTestCase(models.Model):
     class Meta:
         db_table = 'qy_ui_test_case'
         verbose_name_plural = verbose_name = 'UI测试用例'
-        ordering = ['-created_at']
+        ordering = ['created_at']
 
 
 class UiExecution(models.Model):

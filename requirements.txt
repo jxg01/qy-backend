@@ -1,4 +1,4 @@
-asgiref==3.8.1
+asgiref==3.9.1
 certifi==2025.1.31
 charset-normalizer==3.4.3
 class-registry==2.1.2
@@ -21,7 +21,7 @@ urllib3==2.5.0
 celery==5.5.2
 drf-yasg==1.21.10
 django_celery_results==2.6.0
-redis==4.0.0
+redis==4.6.0
 faker==37.4.0
 sqlalchemy==2.0.41
 httpx==0.28.1

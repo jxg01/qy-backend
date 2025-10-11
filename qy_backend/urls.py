@@ -31,6 +31,7 @@ from rest_framework.routers import DefaultRouter
 from mt_tool import views as mt_views
 from ui_case import views as ui_case_views
 from ScheduledTasks.views import ScheduledTaskViewSet, ScheduledTaskResultViewSet
+from django.contrib.staticfiles.urls import staticfiles_urlpatterns
 
 router = DefaultRouter()
 router.register('users', UserViewSet)
@@ -121,3 +122,6 @@ urlpatterns = [
     # path('api/results/', ResultView.as_view({'get': 'list'}), name='select_test_result'),
     # path('api/delResult/<int:id>/', ResultView.as_view({'get': 'destroy'}), name='delete_test_result'),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+
+if settings.DEBUG:
+    urlpatterns += staticfiles_urlpatterns()

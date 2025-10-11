@@ -21,6 +21,7 @@ from celery.utils.log import get_task_logger
 import re
 from ui_case.live import aemit_run_event
 import base64
+import random
 
 log = get_task_logger('worker')
 
@@ -95,6 +96,8 @@ class UIExecutionEngine:
 
     async def start_stream(self, page):
         """启动固定间隔推送"""
+        if not self.run_id:
+            return
         if not self.stream_enabled:
             return
         # 已在推送就不重复启动
@@ -158,8 +161,21 @@ class UIExecutionEngine:
 
             def replacement(match):
                 if match.group(1):  # 函数调用
+                    # func_name = match.group(1)
+                    # args = [arg.strip() for arg in match.group(2).split(',') if arg.strip()]
                     func_name = match.group(1)
-                    args = [arg.strip() for arg in match.group(2).split(',') if arg.strip()]
+                    args_str = match.group(2)
+
+                    # 先处理参数中的变量
+                    def replace_nested_var(var_match):
+                        var_name = var_match.group(3)  # 变量名匹配组
+                        if var_name in context:
+                            return str(context[var_name])
+                        return var_match.group(0)  # 保持原样
+
+                    # 对参数字符串进行变量替换
+                    args_str = pattern.sub(replace_nested_var, args_str)
+                    args = [arg.strip() for arg in args_str.split(',') if arg.strip()]
                     try:
                         # 执行函数
                         namespace = {}
@@ -414,6 +430,30 @@ class UIExecutionEngine:
         else:
             return page.locator(selector)
 
+    async def type_text(self, page, locator, text, human=True):
+        el = page.locator(locator)
+        await el.click(click_count=3, delay=random.randint(50, 120))  # 三击全选
+        # 模拟退格清空（触发keydown/keyup + input）
+        for _ in range(random.randint(3, 12)):
+            await page.keyboard.press("Backspace", delay=random.randint(20, 60))
+        await asyncio.sleep(random.uniform(0.05, 0.2))
+
+        if human:
+            # 长文本：分块 + 随机停顿，更像人
+            if len(text) > 15:
+                sp = random.randint(3, 8)
+                for i in range(0, len(text), sp):
+                    chunk = text[i:i + sp]
+                    await el.type(chunk, delay=random.randint(100, 250))
+                    await asyncio.sleep(random.uniform(0.1, 0.3))
+                    if i + sp < len(text):
+                        await asyncio.sleep(random.uniform(0.1, 0.5))
+            else:
+                await el.type(text, delay=random.randint(100, 250))
+        else:
+            # 快速但仍触发事件的路径
+            await el.type(text, delay=random.randint(50, 120))
+
     async def execute_step(self, page, step: Dict, step_index: int) -> Dict:
         """执行单个测试步骤"""
         self._add_log(f"执行步骤 {step_index + 1}: {step.get('description', step.get('action', '未知操作'))}", "INFO")
@@ -460,7 +500,8 @@ class UIExecutionEngine:
                 # await page.wait_for_selector(selector, state='visible', timeout=self.timeout)
                 # await page.fill(selector, text)
                 await element.wait_for(state='visible', timeout=self.timeout)
-                await element.fill(text)
+                # await element.fill(text)
+                await self.type_text(page, selector, text)
                 return {"step": step_filled, "status": "pass", "log": f"Input text '{text}' into element: {selector}"}
 
             elif action == "execute_script":

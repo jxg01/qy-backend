@@ -19,7 +19,10 @@ log = get_task_logger('worker')
 
 
 @shared_task
-def run_ui_test_case(execution_id: int, browser_type: str, is_headless, run_id: str):
+def run_ui_test_case(execution_id: int, browser_type: str, is_headless, run_id: str = None):
+    """
+    执行UI测试用例的Celery任务
+    """
     start_time = time.time()
     execution = UiExecution.objects.get(id=execution_id)
     try:
