@@ -28,10 +28,10 @@ from jk_case import views
 from projects.views import (ProjectsView, GlobalVariableView, ProjectsEnvsView,
                             HomeStatisticViewSet, PythonCodeView, DBConfigView)
 from rest_framework.routers import DefaultRouter
-from mt_tool import views as mt_views
 from ui_case import views as ui_case_views
 from ScheduledTasks.views import ScheduledTaskViewSet, ScheduledTaskResultViewSet
 from django.contrib.staticfiles.urls import staticfiles_urlpatterns
+from mt_tool.views import test_connection, trade_api, stop_trade
 
 router = DefaultRouter()
 router.register('users', UserViewSet)
@@ -91,36 +91,10 @@ urlpatterns = [
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('api/', include(router.urls)),
 
-    # 任务管理
-    path('api/tasks/', mt_views.TaskAPIView.as_view(), name='task-manage'),
-    path('api/tasks/<str:task_id>/', mt_views.TaskStatusView.as_view(), name='task-status'),
-
-    # 任务历史
-    path('api/users/<int:user_id>/tasks/', mt_views.UserTaskHistoryView.as_view(), name='user-task-history'),
-
-
-    # path('tools', Tools.as_view()),
-
-    # path('api/users/', UserViewSet.as_view({'get': 'list'}), name='select_all_user'),
-    # path('api/addUser/', UserViewSet.as_view({'post': 'create'}), name='add_user'),
-    # path('api/updateUser/<int:id>/', UserViewSet.as_view({'post': 'update'}), name='update_user'),
-    # # 获取访问路由上的值： <类型: id>  id 为主键
-    # # path('api/users/<int:id>/', UserViewSet.as_view({'get': 'retrieve'}), name='select_user'),
-    # path('api/delUser/<int:id>/', UserViewSet.as_view({'get': 'destroy'}), name='delete_user'),
-    # # 项目模块
-    # path('api/projects/', ProjectsView.as_view({'get': 'list'}), name='select_all_project'),
-    # path('api/addProject/', ProjectsView.as_view({'post': 'create'}), name='add_project'),
-    # path('api/updateProject/<int:id>/', ProjectsView.as_view({'post': 'update'}), name='update_project'),
-    # path('api/delProject/<int:id>/', ProjectsView.as_view({'get': 'destroy'}), name='delete_project'),
-    # # 接口模块
-    # path('api/jkCases/', InterFaceCaseView.as_view({'get': 'list'}), name='select_all_jkCase'),
-    # path('api/addJkCase/', InterFaceCaseView.as_view({'post': 'create'}), name='add_jkCase'),
-    # path('api/deleteJkCase/<int:id>/', InterFaceCaseView.as_view({'get': 'destroy'}), name='delete_jkCase'),
-    # path('api/updateCase/<int:id>/', InterFaceCaseView.as_view({'post': 'update'}), name='update_jkCase'),
-    # path('api/runCase/', RunCaseView.as_view(), name='run_case'),
-    # # 测试结果模块
-    # path('api/results/', ResultView.as_view({'get': 'list'}), name='select_test_result'),
-    # path('api/delResult/<int:id>/', ResultView.as_view({'get': 'destroy'}), name='delete_test_result'),
+    # 交易相关接口
+    path('api/test-connection/', test_connection, name='test_connection'),
+    path('api/trade/', trade_api, name='trade_api'),
+    path('api/stop-trade/', stop_trade, name='stop_trade'),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 
 if settings.DEBUG:
