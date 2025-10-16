@@ -36,9 +36,10 @@ COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 
 
 # 创建需要的目录并赋予权限
-RUN mkdir -p /app/staticfiles /app/media /app/logs \
+RUN mkdir -p /app/staticfiles /app/media /app/logs/{celery,django} \
  && mkdir -p /var/lib/nginx /var/lib/nginx/body /run/nginx \
- && chown -R www-data:www-data /app /var/lib/nginx /run/nginx /var/log/nginx
+ && chown -R www-data:www-data /app /var/lib/nginx /run/nginx /var/log/nginx \
+ && chmod -R 755 /app/logs
 
 # 暴露端口
 EXPOSE 80
