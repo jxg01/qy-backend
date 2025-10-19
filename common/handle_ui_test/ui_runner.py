@@ -44,12 +44,12 @@ class UIExecutionEngine:
         self.main_results = []
         self.post_results = []
         self.execution_log = ""  # 执行日志
-        self.timeout = 30000  # 等待元素超时时间（毫秒）
+        self.timeout = 60000  # 等待元素超时时间（毫秒）
         self.run_id = run_id
         self._stream_task = None
         self._stream_stop = None
         # 推送间隔，默认 0.5 秒；可通过环境变量调整
-        self.stream_interval = float(os.getenv("RUN_STREAM_INTERVAL", "0.5"))
+        self.stream_interval = float(settings.UI_TEST_STREAM_INTERVAL)
         # 是否开启固定间隔推送（1/true 开启，0/false 关闭）
         self.stream_enabled = os.getenv("RUN_STREAM_ENABLED", "1").lower() not in ("0", "false", "no")
 
@@ -430,30 +430,6 @@ class UIExecutionEngine:
         else:
             return page.locator(selector)
 
-    async def type_text(self, page, locator, text, human=True):
-        el = page.locator(locator)
-        await el.click(click_count=3, delay=random.randint(50, 120))  # 三击全选
-        # 模拟退格清空（触发keydown/keyup + input）
-        for _ in range(random.randint(3, 12)):
-            await page.keyboard.press("Backspace", delay=random.randint(20, 60))
-        await asyncio.sleep(random.uniform(0.05, 0.2))
-
-        if human:
-            # 长文本：分块 + 随机停顿，更像人
-            if len(text) > 15:
-                sp = random.randint(3, 8)
-                for i in range(0, len(text), sp):
-                    chunk = text[i:i + sp]
-                    await el.type(chunk, delay=random.randint(100, 250))
-                    await asyncio.sleep(random.uniform(0.1, 0.3))
-                    if i + sp < len(text):
-                        await asyncio.sleep(random.uniform(0.1, 0.5))
-            else:
-                await el.type(text, delay=random.randint(100, 250))
-        else:
-            # 快速但仍触发事件的路径
-            await el.type(text, delay=random.randint(50, 120))
-
     async def execute_step(self, page, step: Dict, step_index: int) -> Dict:
         """执行单个测试步骤"""
         self._add_log(f"执行步骤 {step_index + 1}: {step.get('description', step.get('action', '未知操作'))}", "INFO")
@@ -500,8 +476,8 @@ class UIExecutionEngine:
                 # await page.wait_for_selector(selector, state='visible', timeout=self.timeout)
                 # await page.fill(selector, text)
                 await element.wait_for(state='visible', timeout=self.timeout)
-                # await element.fill(text)
-                await self.type_text(page, selector, text)
+                await element.fill(text)
+                # await self.type_text(page, selector, text)
                 return {"step": step_filled, "status": "pass", "log": f"Input text '{text}' into element: {selector}"}
 
             elif action == "execute_script":
@@ -580,25 +556,36 @@ class UIExecutionEngine:
             element = await self.get_element_handle(page, selector) if selector else None
 
             if assert_type == "text":
-                # await expect(page.locator(selector)).to_have_text(expect_value, timeout=self.timeout)
                 await expect(element).to_have_text(expect_value, timeout=self.timeout)
                 return {"step": step_filled, "status": "pass",
                         "log": f"assert type: {assert_type} | Expected text '{expect_value}' in element: {selector}"}
 
+            elif assert_type == "text_not":
+                await expect(element).not_to_have_text(expect_value, timeout=self.timeout)
+                return {"step": step_filled, "status": "pass",
+                        "log": f"assert type: {assert_type} | Expected text '{expect_value}' not in element: {selector}"}
+
+            elif assert_type == "text_contains":
+                await expect(element).to_contain_text(expect_value, timeout=self.timeout)
+                return {"step": step_filled, "status": "pass",
+                        "log": f"assert type: {assert_type} | Element '{selector}' contains text '{expect_value}'"}
+
+            elif assert_type == "text_not_contains":
+                await expect(element).not_to_contain_text(expect_value, timeout=self.timeout)
+                return {"step": step_filled, "status": "pass",
+                        "log": f"assert type: {assert_type} | Element '{selector}' does not contain text '{expect_value}'"}
+
             elif assert_type == "visible":
-                # await expect(page.locator(selector)).to_be_visible(timeout=self.timeout)
                 await expect(element).to_be_visible(timeout=self.timeout)
                 return {"step": step_filled, "status": "pass",
                         "log": f"assert type: {assert_type} | Element '{selector}' is visible"}
 
             elif assert_type == "exists":
-                # await expect(page.locator(selector)).to_have_count(1, timeout=self.timeout)
                 await expect(element).to_have_count(1, timeout=self.timeout)
                 return {"step": step_filled, "status": "pass",
                         "log": f"assert type: {assert_type} | Element '{selector}' exists"}
 
             elif assert_type == "url":
-                # await expect(page).to_have_url(expect_value, timeout=self.timeout)
                 await expect(page).to_have_url(re.compile(fr".*{expect_value}"), timeout=self.timeout)
 
                 return {"step": step_filled, "status": "pass",
@@ -606,8 +593,6 @@ class UIExecutionEngine:
 
             elif assert_type == "attribute":
                 attribute = step_filled["attribute"]
-                # await expect(page.locator(selector)).to_have_attribute(attribute, expect_value, timeout=self.timeout)
-                # element = await self.get_element_handle(page, selector) if selector else None
                 await expect(element).to_have_attribute(
                     attribute,
                     expect_value,
@@ -617,7 +602,6 @@ class UIExecutionEngine:
                         "log": f"assert type: {assert_type} | Expected attribute '{attribute}' to have value '{expect_value}'"}
 
             elif assert_type == "title":
-                # await expect(page).to_have_title(expect_value, timeout=self.timeout)
                 await expect(page).to_have_title(re.compile(fr".*{expect_value}"), timeout=self.timeout)
                 return {"step": step_filled, "status": "pass",
                         "log": f"assert type: {assert_type} | Expected title '{expect_value}'"}
@@ -751,7 +735,6 @@ class UIExecutionEngine:
                     self._add_log(f"提取变量: {var_name} = {str(value)[:50]}{'...' if len(str(value))>50 else ''}", "INFO")
 
         return assigned, sql_result
-
 
     async def execute_post_steps(self, post_steps: List[Dict]) -> List[Dict]:
         """执行后置步骤（SQL或API）"""

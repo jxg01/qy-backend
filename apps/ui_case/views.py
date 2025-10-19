@@ -25,7 +25,9 @@ class UiElementViewSet(viewsets.ModelViewSet):
         project_id = self.request.query_params.get('project_id')
         # 搜索name ｜ 元素值
         name = self.request.query_params.get('name')
+        page = self.request.query_params.get('element_page')
         locator_type = self.request.query_params.get('locator_type')
+        locator_value = self.request.query_params.get('locator_value')
 
         # 初始化查询集
         queryset = UiElement.objects.all().order_by('-id')
@@ -34,9 +36,13 @@ class UiElementViewSet(viewsets.ModelViewSet):
         if project_id:
             queryset = queryset.filter(project_id=project_id)
         if name:
-            queryset = queryset.filter(Q(name__icontains=name) | Q(page__icontains=name))
+            queryset = queryset.filter(name__icontains=name)
+        if page:
+            queryset = queryset.filter(page__icontains=page)
         if locator_type:
             queryset = queryset.filter(locator_type=locator_type)  # 模糊匹配
+        if locator_value:
+            queryset = queryset.filter(locator_value__icontains=locator_value)
 
         return queryset
 

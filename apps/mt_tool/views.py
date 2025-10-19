@@ -104,7 +104,7 @@ class TradingWorker:
             request_data = {
                 'login': int(self.config['ta']),
                 'symbol': self.config['symbol'],
-                'volume': float(self.config['volume']) * 100,
+                'volume': int(float(self.config['volume']) * 100),
                 'type': self.config['order_type_dict'][self.config['cmd']],
                 'price': float(self.config['price']) if self.config['price'] else 100,
                 'action': 0,
@@ -165,7 +165,7 @@ class TradingWorker:
             request_data = {
                 'login': int(self.config['ta']),
                 'symbol': self.config['symbol'],
-                'volume': float(self.config['volume']) * 100,
+                'volume': int(float(self.config['volume']) * 100),
                 'type': self.config['order_type_dict'][self.config['cmd']],
                 'price': float(self.config['price']) if self.config['price'] else 100,
                 'comment': self.config['comment']

@@ -58,7 +58,6 @@ INSTALLED_APPS = [
     'users.apps.UsersConfig',
     'jk_case.apps.JkCaseConfig',
     'projects.apps.ProjectsConfig',
-    'mt_tool.apps.MtToolConfig',
     'ui_case.apps.UiCaseConfig',
     'ScheduledTasks.apps.ScheduledTasksConfig',
     'corsheaders',
@@ -104,7 +103,7 @@ ASGI_APPLICATION = "qy_backend.asgi.application"
 CHANNEL_LAYERS = {
     "default": {
         "BACKEND": "channels_redis.core.RedisChannelLayer",
-        "CONFIG": {"hosts": [os.getenv("CHANNEL_REDIS_URL")]},
+        "CONFIG": {"hosts": [os.getenv("UI_TEST_CHANNEL_REDIS_URL")]},
     }
 }
 
@@ -298,6 +297,7 @@ logging.config.dictConfig(LOGGING)
 
 # chrome | firefox
 UI_TEST_BROWSER_TYPE = os.getenv('UI_TEST_BROWSER_TYPE', 'webkit')
+UI_TEST_STREAM_INTERVAL = os.getenv('UI_TEST_STREAM_INTERVAL', 1)
 
 # 使用：
 # from celery.utils.log import get_task_logger  # 使用Celery专用日志器 ｜ 获取带任务上下文的日志器
