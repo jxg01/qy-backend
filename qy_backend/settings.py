@@ -60,6 +60,7 @@ INSTALLED_APPS = [
     'projects.apps.ProjectsConfig',
     'ui_case.apps.UiCaseConfig',
     'ScheduledTasks.apps.ScheduledTasksConfig',
+    'mt_tool.apps.MTToolConfig',
     'corsheaders',
     'drf_yasg',
     'django_celery_results',

@@ -31,7 +31,7 @@ from rest_framework.routers import DefaultRouter
 from ui_case import views as ui_case_views
 from ScheduledTasks.views import ScheduledTaskViewSet, ScheduledTaskResultViewSet
 from django.contrib.staticfiles.urls import staticfiles_urlpatterns
-from mt_tool.views import test_connection, trade_api, stop_trade
+from mt_tool.views import test_connection, trade_api, stop_trade, MTToolConfigView
 
 router = DefaultRouter()
 router.register('users', UserViewSet)
@@ -65,6 +65,8 @@ router.register('scheduled-task-results', ScheduledTaskResultViewSet, basename='
 router.register('home', HomeStatisticViewSet, basename='home')
 
 router.register('python-code', PythonCodeView, basename='python-code')
+# trade
+router.register('mt-tool-config', MTToolConfigView, basename='mt-tool-config')
 
 schema_view = get_schema_view(
     openapi.Info(

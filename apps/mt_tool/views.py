@@ -9,11 +9,35 @@ from apps.ui_case.live import emit_run_event
 import logging
 from common.utils import APIResponse
 import uuid
+from mt_tool.models import MTToolConfig
+from mt_tool.serializers import MTToolConfigSerializer
+from rest_framework import viewsets, permissions
 
 log = logging.getLogger('django')
 
 # 交易相关的全局变量
 active_trading_threads = {}
+
+
+class MTToolConfigView(viewsets.ModelViewSet):
+    queryset = MTToolConfig.objects.all()
+    serializer_class = MTToolConfigSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get_queryset(self):
+        """只返回当前登录用户的数据"""
+        return MTToolConfig.objects.filter(created_by=self.request.user)
+
+    def perform_create(self, serializer):
+        serializer.save(
+            created_by=self.request.user,
+            updated_by=self.request.user
+        )
+
+    def perform_update(self, serializer):
+        serializer.save(
+            updated_by=self.request.user
+        )
 
 
 def is_ip_connectable(ip, port, timeout=3):
@@ -138,7 +162,9 @@ class TradingWorker:
                                     'action': 1,
                                     'deal': order_id
                                 }
-
+                                if self.config['holder_time'] > 0:
+                                    self.push_log(f'[{self.thread_id}-{i + 1}] 准备sleep等待持仓时间: {self.config["holder_time"]} 秒')
+                                    time.sleep(self.config['holder_time'])
                                 r_close = requests.post(self.config['url'], json=close_request_data,
                                                         headers=request_head, timeout=10)
                                 close_log = f'[{self.thread_id}-{i + 1}] - 【关单】状态码：{r_close.status_code} | 接口返回信息：{r_close.text}'
@@ -261,7 +287,8 @@ def trade_api(request):
             'open_num': int(request.data.get('open_num', 1)),
             'symbol': str(request.data.get('symbol', '')).strip().upper(),
             'order_type_dict': order_type_dict,
-            'api_path': api_path
+            'api_path': api_path,
+            'holder_time': int(request.data.get('holder_time')) if request.data.get('holder_time', 0) > 0 else 0,
         }
 
         # 构造URL
