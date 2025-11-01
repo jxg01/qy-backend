@@ -66,6 +66,7 @@ INSTALLED_APPS = [
     'django_celery_results',
     'django_celery_beat',      # Celery定时任务
     'channels',  # Django Channels
+    'storages',  # 用于S3/MinIO存储支持
 ]
 
 CORS_ORIGIN_ALLOW_ALL = True
@@ -151,8 +152,36 @@ STATIC_URL = '/static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 # 额外的静态文件目录 - 应用目录外的静态文件
 STATICFILES_DIRS = [os.path.join(BASE_DIR, 'static')]
-MEDIA_URL = '/media/'
-MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+
+# 媒体文件配置 - 使用S3/MinIO存储
+# 使用自定义的MinIO存储类，更好地兼容MinIO
+DEFAULT_FILE_STORAGE = 'common.storage.minio_storage.MinioMediaStorage'
+
+# MinIO/S3配置
+AWS_STORAGE_BUCKET_NAME = 'qy-backend'
+# 在Docker环境中，使用宿主机IP或特殊DNS名称
+# host.docker.internal是Docker提供的特殊DNS，指向宿主机
+AWS_S3_ENDPOINT_URL = 'http://host.docker.internal:9000'
+AWS_S3_REGION_NAME = 'us-east-1'  # MinIO默认区域
+AWS_ACCESS_KEY_ID = 'admin'
+AWS_SECRET_ACCESS_KEY = '12345678'
+
+# 确保URL正确生成
+AWS_S3_CUSTOM_DOMAIN = 'host.docker.internal:9000'
+AWS_S3_OBJECT_PARAMETERS = {
+    'CacheControl': 'max-age=86400',
+}
+
+# 媒体文件URL和根路径
+# 客户端访问时仍然使用宿主机的127.0.0.1，因为客户端在宿主机上
+MEDIA_URL = f'http://127.0.0.1:9000/{AWS_STORAGE_BUCKET_NAME}/media/'
+MEDIA_ROOT = ''  # 使用S3时不需要本地路径
+
+# 确保文件路径正确
+AWS_LOCATION = 'media'
+
+# 允许从MinIO直接访问文件
+AWS_QUERYSTRING_AUTH = False  # 不需要URL签名，便于直接访问
 
 REST_FRAMEWORK = {
     # 'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
