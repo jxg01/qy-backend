@@ -1,29 +1,25 @@
+# mt_tool/views.py
 from rest_framework.decorators import api_view
 from rest_framework import status
 import socket
-import requests
-import time
-import threading
-import datetime
-from apps.ui_case.live import emit_run_event
-import logging
-from common.utils import APIResponse
 import uuid
+from django.utils import timezone
+from common.utils import APIResponse
 from mt_tool.models import MTToolConfig
 from mt_tool.serializers import MTToolConfigSerializer
 from rest_framework import viewsets, permissions
+from mt_tool.tasks import execute_trading_with_multithreading
+from ui_case.live import emit_run_event
+import logging
 
 log = logging.getLogger('django')
-
-# 交易相关的全局变量
-active_trading_threads = {}
 
 
 class MTToolConfigView(viewsets.ModelViewSet):
     queryset = MTToolConfig.objects.all()
     serializer_class = MTToolConfigSerializer
     permission_classes = [permissions.IsAuthenticated]
-    
+
     def get_queryset(self):
         """只返回当前登录用户的数据"""
         return MTToolConfig.objects.filter(created_by=self.request.user)
@@ -55,162 +51,6 @@ def is_ip_connectable(ip, port, timeout=3):
         sock.close()
 
 
-class TradingWorker:
-    """
-    交易执行工作线程类，模拟trading_windows.py中的WorkerThread功能
-    """
-
-    def __init__(self, thread_id, config, run_id):
-        self.thread_id = thread_id
-        self.config = config
-        self.run_id = run_id
-        self.stopped = False
-
-    def stop(self):
-        self.stopped = True
-
-    def push_log(self, message):
-        """
-        通过WebSocket推送日志消息
-        """
-        try:
-            emit_run_event(self.run_id, {
-                'type': 'log',
-                'message': f'[{datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] {message}'
-            })
-        except Exception as e:
-            log.error(f"推送日志失败: {str(e)}")
-
-    def run(self):
-        """
-        执行交易任务
-        """
-        try:
-            if self.config['server_type'] == "MT4":
-                self.run_mt4()
-            else:
-                self.run_mt5()
-        except Exception as e:
-            error_msg = f"线程 {self.thread_id} 发生错误: {str(e)}"
-            self.push_log(error_msg)
-            log.error(error_msg)
-
-        finally:
-            # 通知前端此线程已完成
-            self.push_log(f"线程 {self.thread_id} 完成任务!")
-            # 从活动线程中移除
-            if self.run_id in active_trading_threads:
-                if self.thread_id in active_trading_threads[self.run_id]:
-                    del active_trading_threads[self.run_id][self.thread_id]
-                # 如果没有活动线程了，通知前端任务完成
-                if not active_trading_threads[self.run_id]:
-                    del active_trading_threads[self.run_id]
-                    try:
-                        emit_run_event(self.run_id, {
-                            'type': 'status',
-                            'status': 'completed',
-                            'progress': 100,
-                            'message': '所有交易任务已完成'
-                        })
-                    except Exception as e:
-                        log.error(f"推送完成状态失败: {str(e)}")
-
-    def run_mt4(self):
-        """
-        执行MT4交易
-        """
-        open_num = self.config['open_num']
-        for i in range(open_num):
-            if self.stopped:
-                self.push_log(f'线程 {self.thread_id} 被终止！')
-                return
-
-            request_data = {
-                'login': int(self.config['ta']),
-                'symbol': self.config['symbol'],
-                'volume': int(float(self.config['volume']) * 100),
-                'type': self.config['order_type_dict'][self.config['cmd']],
-                'price': float(self.config['price']) if self.config['price'] else 100,
-                'action': 0,
-                'comment': self.config['comment']
-            }
-            request_head = {
-                'content-type': 'application/json',
-                'server_name': self.config['server_name'],
-                'timestamp': str(int(time.time())),
-            }
-
-            try:
-                self.push_log(f'[{self.thread_id}-{i + 1}] 准备发送开单请求...')
-                r_open = requests.post(self.config['url'], json=request_data, headers=request_head, timeout=10)
-                log_msg = f'[{self.thread_id}-{i + 1}] - 【开单】状态码：{r_open.status_code} | 接口返回信息：{r_open.text}'
-                self.push_log(log_msg)
-
-                if int(self.config['function']) == 2:  # 开单+关单
-                    if r_open.status_code == 200:
-                        try:
-                            response_json = r_open.json()
-                            if response_json.get('code') == 0:
-                                order_id = response_json['data']['deal']
-
-                                close_request_data = {
-                                    'login': int(request_data['login']),
-                                    'symbol': request_data['symbol'],
-                                    'volume': request_data['volume'],
-                                    'type': request_data['type'],
-                                    'price': request_data['price'],
-                                    'action': 1,
-                                    'deal': order_id
-                                }
-                                if self.config['holder_time'] > 0:
-                                    self.push_log(f'[{self.thread_id}-{i + 1}] 准备sleep等待持仓时间: {self.config["holder_time"]} 秒')
-                                    time.sleep(self.config['holder_time'])
-                                r_close = requests.post(self.config['url'], json=close_request_data,
-                                                        headers=request_head, timeout=10)
-                                close_log = f'[{self.thread_id}-{i + 1}] - 【关单】状态码：{r_close.status_code} | 接口返回信息：{r_close.text}'
-                                self.push_log(close_log)
-                            else:
-                                self.push_log(f'开单返回错误，无法关单: {response_json.get("message", "")}')
-                        except Exception as e:
-                            self.push_log(f'解析开单返回结果失败: {str(e)}')
-                    else:
-                        self.push_log(f'开单请求失败，无法关单')
-            except Exception as e:
-                self.push_log(f'请求异常: {str(e)}')
-
-    def run_mt5(self):
-        """
-        执行MT5交易
-        """
-        open_num = self.config['open_num']
-        for i in range(open_num):
-            if self.stopped:
-                self.push_log(f'线程 {self.thread_id} 被终止！')
-                return
-
-            request_data = {
-                'login': int(self.config['ta']),
-                'symbol': self.config['symbol'],
-                'volume': int(float(self.config['volume']) * 100),
-                'type': self.config['order_type_dict'][self.config['cmd']],
-                'price': float(self.config['price']) if self.config['price'] else 100,
-                'comment': self.config['comment']
-            }
-            request_head = {
-                'content-type': 'application/json',
-                'server_name': self.config['server_name'],
-                'timestamp': str(int(time.time())),
-            }
-
-            try:
-                self.push_log(f'[{self.thread_id}-{i + 1}] 准备发送开单请求...')
-                r_open = requests.post(self.config['url'], json=request_data, headers=request_head, timeout=10)
-                log_msg = f'[{self.thread_id}-{i + 1}] - 【开单】状态码：{r_open.status_code} | 接口返回信息：{r_open.text}'
-                self.push_log(log_msg)
-            except Exception as e:
-                self.push_log(f'请求异常: {str(e)}')
-
-
 @api_view(['POST'])
 def test_connection(request):
     """
@@ -240,7 +80,7 @@ def test_connection(request):
 @api_view(['POST'])
 def trade_api(request):
     """
-    交易接口，功能与trading_windows.py一致
+    交易接口 - 使用 Celery 任务
     请求参数：
     {
         "ip": "10.12.6.18",
@@ -288,7 +128,7 @@ def trade_api(request):
             'symbol': str(request.data.get('symbol', '')).strip().upper(),
             'order_type_dict': order_type_dict,
             'api_path': api_path,
-            'holder_time': int(request.data.get('holder_time')) if request.data.get('holder_time', 0) > 0 else 0,
+            'holder_time': int(request.data.get('holder_time', 0)),
         }
 
         # 构造URL
@@ -315,9 +155,6 @@ def trade_api(request):
             if not config[field]:
                 return APIResponse({"status": "error", "message": f'{value} 不能为空!'}, status=status.HTTP_200_OK)
 
-        # 初始化活动线程字典
-        active_trading_threads[run_id] = {}
-
         # 推送初始状态和交易配置信息
         try:
             emit_run_event(run_id, {
@@ -339,22 +176,35 @@ def trade_api(request):
                     'open_num': config['open_num']
                 }
             })
+            log.info(f"初始状态推送成功，run_id: {run_id}")
         except Exception as e:
             log.error(f"推送初始状态失败: {str(e)}")
 
-        # 创建并启动工作线程
-        for i in range(thread_num):
-            worker = TradingWorker(i + 1, config, run_id)
-            active_trading_threads[run_id][i + 1] = worker
-            thread = threading.Thread(target=worker.run)
-            thread.daemon = True
-            thread.start()
+        # 启动单个 Celery 任务，内部使用多线程
+        task = execute_trading_with_multithreading.delay(config, run_id, thread_num)
+        task_id = task.id
+        log.info(f"已提交多线程交易任务，线程数: {thread_num}, 任务ID: {task_id}")
+
+        # 收到
+        emit_run_event(run_id, {
+            'type': 'config',
+            'config': {
+                'function': config['function'],
+                'server_type': config['server_type'],
+                'symbol': config['symbol'],
+                'volume': config['volume'],
+                'order_type': config['cmd'],
+                'thread_num': thread_num,
+                'open_num': config['open_num']
+            }
+        })
 
         return APIResponse({
             "status": "success",
             "message": "交易任务已开始",
             "run_id": run_id,
-            "websocket_url": f"ws://{request.get_host()}/api/ws/run/{run_id}/"
+            "task_count": thread_num,
+            "websocket_url": f"{request.get_host()}/api/ws/run/{run_id}/"
         }, status=status.HTTP_202_ACCEPTED)
 
     except Exception as e:
@@ -375,22 +225,26 @@ def stop_trade(request):
         if not run_id:
             return APIResponse({"status": "error", "message": "run_id不能为空"}, status=status.HTTP_200_OK)
 
-        if run_id in active_trading_threads:
-            for worker in active_trading_threads[run_id].values():
-                worker.stop()
+        # 发送停止状态
+        try:
+            emit_run_event(run_id, {
+                'type': 'status',
+                'status': 'stopping',
+                'message': '已发送停止信号...'
+            })
 
-            try:
-                emit_run_event(run_id, {
-                    'type': 'status',
-                    'status': 'stopping',
-                    'message': '已发送停止信号，等待线程结束...'
-                })
-            except Exception as e:
-                log.error(f"推送停止状态失败: {str(e)}")
+            # 发送完成状态
+            emit_run_event(run_id, {
+                'type': 'done',
+                'message': '交易任务已停止，连接即将关闭'
+            })
 
-            return APIResponse({"status": "success", "message": "已发送停止信号"}, status=status.HTTP_200_OK)
-        else:
-            return APIResponse({"status": "error", "message": "未找到对应的交易任务"}, status=status.HTTP_200_OK)
+            log.info(f"已停止交易任务，run_id: {run_id}")
+
+        except Exception as e:
+            log.error(f"推送停止状态失败: {str(e)}")
+
+        return APIResponse({"status": "success", "message": "已发送停止信号"}, status=status.HTTP_200_OK)
 
     except Exception as e:
         log.error(f"停止交易任务失败: {str(e)}")
